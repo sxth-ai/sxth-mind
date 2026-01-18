@@ -32,7 +32,7 @@ Learn more at https://github.com/toywobot/sxth-mind
     demo_parser = subparsers.add_parser("demo", help="Run interactive demo")
     demo_parser.add_argument(
         "--adapter",
-        choices=["sales", "habits"],
+        choices=["sales", "habits", "learning"],
         default="sales",
         help="Adapter to use (default: sales)",
     )
@@ -46,7 +46,7 @@ Learn more at https://github.com/toywobot/sxth-mind
     serve_parser = subparsers.add_parser("serve", help="Start HTTP server")
     serve_parser.add_argument(
         "--adapter",
-        choices=["sales", "habits"],
+        choices=["sales", "habits", "learning"],
         default="sales",
         help="Adapter to use (default: sales)",
     )
@@ -122,6 +122,9 @@ def get_adapter(adapter_name: str):
     elif adapter_name == "habits":
         from examples.habits import HabitCoachAdapter
         return HabitCoachAdapter()
+    elif adapter_name == "learning":
+        from examples.learning import LearningAdapter
+        return LearningAdapter()
     else:
         raise ValueError(f"Unknown adapter: {adapter_name}")
 
