@@ -5,11 +5,10 @@ Rule-based nudge generation. Checks conditions and generates nudges
 based on adapter templates.
 """
 
-from datetime import datetime, timedelta
 from uuid import uuid4
 
 from sxth_mind.adapters.base import BaseAdapter
-from sxth_mind.schemas import UserMind, ProjectMind, Nudge
+from sxth_mind.schemas import Nudge, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
 
 
@@ -235,7 +234,6 @@ class BaselineNudgeEngine:
     ) -> Nudge | None:
         """Check for milestone achievements."""
         streak = project_mind.get_progress_field("current_streak", 0)
-        longest = project_mind.get_progress_field("longest_streak", 0)
 
         # Milestone thresholds
         milestones = [7, 14, 21, 30, 60, 90]
@@ -292,18 +290,22 @@ async def generate_nudges_for_all_users(
 
     This would typically be run on a schedule (e.g., daily).
 
+    Note: This is a placeholder. In a real implementation, you'd:
+    1. Add a get_all_user_ids() method to storage
+    2. Iterate over all users and generate nudges
+
     Returns:
         Dict mapping user_id to list of generated nudges
     """
-    engine = BaselineNudgeEngine(adapter, storage)
-    results = {}
-
-    # Note: In a real implementation, you'd iterate over all users
-    # This is a placeholder showing the pattern
+    # Placeholder - shows the pattern for batch nudge generation
+    # engine = BaselineNudgeEngine(adapter, storage)
+    # results = {}
     # user_ids = await storage.get_all_user_ids()
     # for user_id in user_ids:
     #     nudges = await engine.check_and_generate(user_id)
     #     if nudges:
     #         results[user_id] = nudges
+    # return results
 
-    return results
+    _ = adapter, storage  # Mark as used
+    return {}

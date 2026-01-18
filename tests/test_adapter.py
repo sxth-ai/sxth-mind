@@ -1,14 +1,15 @@
 """Tests for adapter system."""
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add examples to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from examples.sales import SalesAdapter
-from sxth_mind.schemas import UserMind, ProjectMind
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class TestSalesAdapter:

@@ -8,7 +8,7 @@ Demonstrates journey stages for behavior change.
 from typing import Any
 
 from sxth_mind.adapters.base import BaseAdapter
-from sxth_mind.schemas import UserMind, ProjectMind
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class HabitCoachAdapter(BaseAdapter):

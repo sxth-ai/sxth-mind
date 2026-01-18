@@ -19,8 +19,6 @@ await mind.chat("user_1", "Following up with the enterprise lead again")
 
 The Mind accumulates state, detects patterns, and adapts over time.
 
-> **Read the motivation:** [Why This Exists](https://sxth.ai/blog/understanding-layer) — the architectural problem this solves.
-
 ---
 
 ## Why sxth-mind?
@@ -86,8 +84,11 @@ You bring the intelligence. We maintain the understanding.
 ## Installation
 
 ```bash
-pip install sxth-mind[agno]  # With Agno provider (recommended)
-pip install sxth-mind        # Core only, bring your own LLM provider
+pip install sxth-mind              # Core only
+pip install sxth-mind[openai]      # With OpenAI provider
+pip install sxth-mind[api]         # With HTTP API server
+pip install sxth-mind[sqlite]      # With SQLite storage
+pip install sxth-mind[all]         # Everything
 ```
 
 ---
@@ -118,15 +119,8 @@ sxth-mind exposes everything—no black boxes.
 ```python
 # See what the Mind knows
 state = await mind.get_state(user_id="user_123")
-print(state.themes)       # ["outreach", "enterprise"]
-print(state.patterns)     # {}
-print(state.identity)     # {}
-
-# After more interactions...
-state = await mind.get_state(user_id="user_123")
-print(state.themes)       # ["outreach", "enterprise", "follow_ups"]
-print(state.patterns)     # {"outreach": {"preferred_channel": "email", "avg_touches": 4}}
-print(state.identity)     # {"style": "persistent", "strength": "relationship_building"}
+print(state["user_mind"])    # UserMind data as dict
+print(state["project_mind"]) # ProjectMind data as dict
 ```
 
 ### 3. Get a Human-Readable Summary
@@ -136,20 +130,16 @@ summary = await mind.explain_state(user_id="user_123")
 print(summary)
 # "User has logged 15 sales interactions over 4 weeks.
 #  Pattern: enterprise deals require 4+ touches before response.
-#  Preferred channel: email, but LinkedIn warming up.
 #  Current stage: active_pipeline (tone: strategic)"
 ```
 
-### 4. Preview Updates (Dry Run)
+### 4. Check for Nudges
 
 ```python
-delta = await mind.preview_update(
-    user_id="user_123",
-    message="The enterprise lead finally responded"
-)
-print(delta)
-# {"themes_added": ["responses"],
-#  "patterns_updated": {"outreach": "conversion after 5 touches"}}
+# Get proactive suggestions based on state
+nudges = await mind.get_pending_nudges(user_id="user_123")
+for nudge in nudges:
+    print(f"{nudge.title}: {nudge.message}")
 ```
 
 ---
@@ -175,9 +165,9 @@ print(delta)
 │               │   │               │   │               │
 │ Defines the   │   │ Handles LLM   │   │ Persists the  │
 │ domain:       │   │ calls:        │   │ mind:         │
-│ - stages      │   │ - Agno        │   │ - Memory      │
-│ - identity    │   │ - LangChain   │   │ - SQLite      │
-│ - nudges      │   │ - Direct API  │   │ - Postgres    │
+│ - stages      │   │ - OpenAI      │   │ - Memory      │
+│ - identity    │   │ - Custom      │   │ - SQLite      │
+│ - nudges      │   │               │   │               │
 └───────────────┘   └───────────────┘   └───────────────┘
 ```
 
@@ -192,10 +182,15 @@ print(delta)
 The central abstraction. Holds cognitive state, routes to adapters, coordinates persistence.
 
 ```python
+from sxth_mind import Mind
+from sxth_mind.storage import SQLiteStorage
+from sxth_mind.providers.openai import OpenAIProvider
+from examples.sales import SalesAdapter
+
 mind = Mind(
-    adapter=SalesAdapter(),              # Domain configuration
-    provider=AgnoProvider(),             # LLM calls (optional, has default)
-    storage=SQLiteStorage("mind.db"),    # Persistence (optional, defaults to memory)
+    adapter=SalesAdapter(),                     # Domain configuration
+    provider=OpenAIProvider(),                  # LLM calls (optional)
+    storage=SQLiteStorage("mind.db"),           # Persistence (optional)
 )
 ```
 
@@ -208,18 +203,19 @@ class UserMind:
     user_id: str
 
     # What we've learned about them
-    identity: dict          # {"style": "persistent", "strength": "relationship_building"}
-    patterns: dict          # {"outreach": {"avg_touches": 4, "preferred_channel": "email"}}
-    themes: list[str]       # ["enterprise", "outreach", "follow_ups"]
+    identity_type: str | None       # "hunter", "farmer", etc.
+    identity_data: dict             # Adapter-specific identity info
+    patterns: dict                  # Detected behavioral patterns
+    preferences: dict               # User preferences
 
     # Interaction history
-    interaction_count: int
-    last_interaction: datetime
+    total_interactions: int
+    trust_score: float              # 0.0 to 1.0
 ```
 
 ### ProjectMind
 
-Context-specific state (a deal, a pipeline, a campaign).
+Context-specific state (a deal, a habit, a learning topic).
 
 ```python
 class ProjectMind:
@@ -227,12 +223,13 @@ class ProjectMind:
     user_mind_id: str
 
     # Journey progress
-    stage: str              # "prospecting", "qualifying", "negotiating", etc.
-    momentum: float         # 0.0 to 1.0
+    journey_stage: str | None       # "prospecting", "qualifying", etc.
+    momentum_score: float           # 0.0 to 1.0
 
     # Context-specific data
-    context: dict           # Adapter-defined structure
-    progress: dict          # Adapter-defined metrics
+    context_data: dict              # Adapter-defined structure
+    progress_data: dict             # Adapter-defined metrics
+    days_since_activity: int
 ```
 
 ### Adapters
@@ -244,6 +241,8 @@ Domain-specific configuration. Adapters define:
 - **Nudge templates**: Proactive messages for re-engagement
 
 ```python
+from sxth_mind import BaseAdapter
+
 class SalesAdapter(BaseAdapter):
     def get_journey_stages(self):
         return [
@@ -253,12 +252,12 @@ class SalesAdapter(BaseAdapter):
             {"key": "stalled", "tone": "supportive"},
         ]
 
-    def detect_stage(self, project_mind):
+    def detect_journey_stage(self, project_mind):
         if project_mind.interaction_count < 3:
             return "prospecting"
         if project_mind.days_since_activity > 14:
             return "stalled"
-        if project_mind.momentum > 0.7:
+        if project_mind.momentum_score > 0.7:
             return "negotiating"
         return "qualifying"
 ```
@@ -279,8 +278,8 @@ from examples.sales import SalesAdapter
 mind = Mind(adapter=SalesAdapter())
 ```
 
-**Stages:** prospecting → qualifying → negotiating → stalled
-**Identity types:** relationship_builder, closer, hunter, farmer
+**Identity types:** hunter, farmer, consultant, closer
+**Stages:** prospecting → qualifying → proposing → negotiating → closing (+ nurturing, stalled)
 **Tracks:** outreach patterns, response rates, deal velocity
 
 ### Habits
@@ -288,28 +287,28 @@ mind = Mind(adapter=SalesAdapter())
 Habit building with streak tracking and recovery.
 
 ```python
-from sxth_mind.examples import HabitCoachAdapter
+from examples.habits import HabitCoachAdapter
 
 mind = Mind(adapter=HabitCoachAdapter())
 ```
 
-**Stages:** starting → struggling → building → consistent → recovering
 **Identity types:** all_or_nothing, slow_builder, accountability_seeker, self_motivated
-**Tracks:** streaks, skip patterns, time-of-day preferences
+**Stages:** starting → struggling → building → consistent (+ recovering)
+**Tracks:** streaks, blockers, time-of-day patterns
 
 ### Learning
 
 Skill development with progress tracking.
 
 ```python
-from sxth_mind.examples import LearningAdapter
+from examples.learning import LearningAdapter
 
 mind = Mind(adapter=LearningAdapter())
 ```
 
-**Stages:** exploring → practicing → applying → mastering
-**Identity types:** conceptual_learner, hands_on, structured, explorer
-**Tracks:** topics covered, struggle points, learning velocity
+**Identity types:** conceptual, hands_on, structured, explorer
+**Stages:** exploring → foundations → practicing → applying → deepening (+ stuck)
+**Tracks:** exercises completed, projects completed, stuck indicators
 
 ---
 
@@ -317,39 +316,38 @@ mind = Mind(adapter=LearningAdapter())
 
 sxth-mind is **framework-agnostic**. Bring your own LLM provider.
 
-### Agno (Default)
+### OpenAI
 
 ```python
-from sxth_mind.providers import AgnoProvider
+from sxth_mind.providers.openai import OpenAIProvider
 
 mind = Mind(
     adapter=SalesAdapter(),
-    provider=AgnoProvider(model="gpt-4o"),
-)
-```
-
-### Direct OpenAI
-
-```python
-from sxth_mind.providers import OpenAIDirectProvider
-
-mind = Mind(
-    adapter=SalesAdapter(),
-    provider=OpenAIDirectProvider(api_key="sk-..."),
+    provider=OpenAIProvider(
+        api_key="sk-...",           # Or set OPENAI_API_KEY env var
+        default_model="gpt-4o-mini",
+    ),
 )
 ```
 
 ### Custom Provider
 
 ```python
-from sxth_mind.providers import BaseLLMProvider
+from sxth_mind.providers import BaseLLMProvider, LLMResponse, Message
 
 class MyProvider(BaseLLMProvider):
-    async def chat(self, messages, tools=None, model=None):
+    async def chat(
+        self,
+        messages: list[Message],
+        model: str | None = None,
+        tools: list[dict] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
         # Your implementation
         ...
 
-    async def chat_stream(self, messages, tools=None, model=None):
+    async def chat_stream(self, messages, **kwargs):
         # Your streaming implementation
         ...
 
@@ -377,21 +375,11 @@ mind = Mind(
 )
 ```
 
-### PostgreSQL
-
-```python
-from sxth_mind.storage import PostgresStorage
-
-mind = Mind(
-    adapter=SalesAdapter(),
-    storage=PostgresStorage("postgresql://localhost/mydb"),
-)
-```
-
 ### Custom Storage
 
 ```python
 from sxth_mind.storage import BaseStorage
+from sxth_mind import UserMind, ProjectMind
 
 class MyStorage(BaseStorage):
     async def get_user_mind(self, user_id: str) -> UserMind | None:
@@ -400,43 +388,58 @@ class MyStorage(BaseStorage):
     async def save_user_mind(self, user_mind: UserMind) -> None:
         ...
 
-    # ... other methods
+    async def get_project_minds(self, user_mind_id: str) -> list[ProjectMind]:
+        ...
+
+    async def get_project_mind(self, user_mind_id: str, project_id: str) -> ProjectMind | None:
+        ...
+
+    async def save_project_mind(self, project_mind: ProjectMind) -> None:
+        ...
 
 mind = Mind(adapter=SalesAdapter(), storage=MyStorage())
 ```
 
 ---
 
-## Nudges (Proactive Outreach)
+## Nudge Engine
 
-sxth-mind can generate proactive messages based on state.
+sxth-mind includes a baseline nudge engine for proactive outreach.
 
 ```python
-# Check for pending nudges
-nudges = await mind.get_pending_nudges(user_id="user_123")
+from sxth_mind.engine import BaselineNudgeEngine
+
+engine = BaselineNudgeEngine(adapter, storage)
+
+# Check and generate nudges for a user
+nudges = await engine.check_and_generate("user_123")
 
 for nudge in nudges:
-    print(nudge.title)    # "Deal going cold?"
-    print(nudge.message)  # "No activity on the enterprise deal in 7 days. Time to re-engage?"
-    print(nudge.priority) # 5
+    print(f"{nudge.title}: {nudge.message}")
+    # "Deal going cold?" : "No activity on deal_1 in 8 days. Time to re-engage?"
 ```
 
-Nudges are **adapter-defined** and **rule-based**:
+The engine checks for:
+- **Inactivity**: User hasn't interacted in X days
+- **Momentum drop**: Activity level has decreased
+- **Streak risk**: Habits at risk of breaking
+- **Milestones**: Progress worth celebrating
+
+Nudge templates are **adapter-defined**:
 
 ```python
 class SalesAdapter(BaseAdapter):
     def get_nudge_templates(self):
         return {
-            "stalled": {
+            "stalled_deal": {
                 "title": "Deal going cold?",
-                "template": "No activity on {deal} in {days} days. Time to re-engage?",
-                "min_days": 7,
+                "template": "No activity on {project} in {days} days. Time to re-engage?",
                 "priority": 5,
             },
-            "momentum": {
-                "title": "Hot lead!",
-                "template": "{deal} is moving fast. Consider accelerating the timeline.",
-                "priority": 3,
+            "momentum_drop": {
+                "title": "Momentum slipping",
+                "template": "Activity on {project} has dropped. Everything okay?",
+                "priority": 4,
             },
         }
 ```
@@ -448,17 +451,23 @@ class SalesAdapter(BaseAdapter):
 Run sxth-mind as a service:
 
 ```bash
+pip install sxth-mind[api]
 sxth-mind serve --adapter sales --port 8000
 ```
 
 ### Endpoints
 
-```
-POST /chat              # Send a message
-GET  /state/{user_id}   # Get user state
-GET  /explain/{user_id} # Get human-readable summary
-GET  /nudges/{user_id}  # Get pending nudges
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/chat` | Send a message |
+| POST | `/chat/stream` | Stream a response (SSE) |
+| GET | `/state/{user_id}` | Get user state |
+| GET | `/explain/{user_id}` | Get human-readable summary |
+| GET | `/nudges/{user_id}` | Get pending nudges |
+| POST | `/nudges/{user_id}/generate` | Generate new nudges |
+| POST | `/nudges/{nudge_id}/dismiss` | Dismiss a nudge |
+| POST | `/nudges/{nudge_id}/act` | Mark nudge as acted upon |
 
 ### Example
 
@@ -473,17 +482,17 @@ curl -X POST http://localhost:8000/chat \
 ## CLI
 
 ```bash
-# Run interactive chat with an adapter
-sxth-mind chat --adapter sales
+# Run interactive demo with an adapter
+sxth-mind demo                      # Sales adapter (default)
+sxth-mind demo --adapter habits     # Habits adapter
+sxth-mind demo --adapter learning   # Learning adapter
 
 # Start HTTP server
 sxth-mind serve --adapter sales --port 8000
+sxth-mind serve --adapter habits --storage sqlite --db-path minds.db
 
-# Inspect state
-sxth-mind state user_123 --adapter sales
-
-# List available adapters
-sxth-mind adapters
+# Show package info
+sxth-mind info
 ```
 
 ---
@@ -492,11 +501,16 @@ sxth-mind adapters
 
 ```python
 from sxth_mind import BaseAdapter
+from sxth_mind.schemas import UserMind, ProjectMind
 
 class MyAppAdapter(BaseAdapter):
     @property
     def name(self) -> str:
         return "my_app"
+
+    @property
+    def display_name(self) -> str:
+        return "My App"
 
     def get_identity_types(self):
         """What user archetypes exist in your domain?"""
@@ -508,31 +522,36 @@ class MyAppAdapter(BaseAdapter):
     def get_journey_stages(self):
         """What does progression look like?"""
         return [
-            {"key": "onboarding", "tone": "helpful"},
-            {"key": "learning", "tone": "educational"},
-            {"key": "proficient", "tone": "efficient"},
-            {"key": "churning", "tone": "supportive"},
+            {"key": "onboarding", "tone": "helpful", "guidance": "Help them get started..."},
+            {"key": "learning", "tone": "educational", "guidance": "Teach key concepts..."},
+            {"key": "proficient", "tone": "efficient", "guidance": "Stay out of their way..."},
+            {"key": "churning", "tone": "supportive", "guidance": "Re-engage gently..."},
         ]
 
-    def detect_stage(self, project_mind):
+    def detect_journey_stage(self, project_mind: ProjectMind) -> str:
         """How do you determine current stage?"""
         if project_mind.interaction_count < 5:
             return "onboarding"
         if project_mind.days_since_activity > 30:
             return "churning"
-        if project_mind.context.get("completed_tutorial"):
+        if project_mind.get_context_field("completed_tutorial"):
             return "proficient"
         return "learning"
 
     def get_nudge_templates(self):
         """What proactive messages should we send?"""
         return {
-            "churning": {
+            "comeback": {
                 "title": "We miss you!",
                 "template": "It's been {days} days. Here's what's new...",
-                "min_days": 30,
+                "priority": 5,
             },
         }
+
+    def get_system_prompt(self, user_mind: UserMind, project_mind: ProjectMind) -> str:
+        """Generate context-aware system prompt."""
+        stage = project_mind.journey_stage or self.detect_journey_stage(project_mind)
+        return f"You are a helpful assistant. User is in the {stage} stage."
 
 # Use it
 mind = Mind(adapter=MyAppAdapter())
@@ -575,25 +594,10 @@ MIT
 
 ---
 
-## What's NOT Included
-
-sxth-mind provides the **cognitive substrate**. For production applications that need to **improve over time**, check out **Brain Engine Cloud** which adds:
-
-- Learning from user feedback (accepted/rejected advice)
-- Cross-user pattern detection
-- Intelligent nudge timing optimization
-- Trust calibration
-- Enterprise support & SLAs
-
-[Learn more about Brain Engine Cloud →](https://sxth.ai/cloud)
-
----
-
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Especially:
 
-Especially welcome:
 - New example adapters
 - Storage backend implementations
 - Provider implementations
@@ -603,8 +607,5 @@ Especially welcome:
 
 ## Links
 
-- [Why This Exists](https://sxth.ai/blog/understanding-layer) — The problem this solves
-- [Documentation](https://sxth-mind.readthedocs.io)
-- [GitHub](https://github.com/sxth/sxth-mind)
+- [GitHub](https://github.com/toywobot/sxth-mind)
 - [PyPI](https://pypi.org/project/sxth-mind)
-- [Discord](https://discord.gg/sxth)

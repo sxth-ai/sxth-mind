@@ -1,13 +1,14 @@
 """Tests for LearningAdapter."""
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from examples.learning import LearningAdapter
-from sxth_mind.schemas import UserMind, ProjectMind
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class TestLearningAdapter:

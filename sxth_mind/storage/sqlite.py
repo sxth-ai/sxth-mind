@@ -4,12 +4,11 @@ SQLite Storage
 SQLite-based storage implementation. Data persists across restarts.
 """
 
-import json
 from pathlib import Path
 from uuid import uuid4
 
+from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
-from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory, Nudge
 
 
 class SQLiteStorage(BaseStorage):

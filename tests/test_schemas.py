@@ -1,9 +1,7 @@
 """Tests for schema models."""
 
-import pytest
-from datetime import datetime
 
-from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory, Message
+from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
 
 
 class TestUserMind:

@@ -5,7 +5,8 @@ Conversation memory and message history.
 """
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -16,8 +17,8 @@ class Message(BaseModel):
         ..., description="Message role"
     )
     content: str = Field(..., description="Message content")
-    name: Optional[str] = Field(default=None, description="Tool name if role=tool")
-    tool_call_id: Optional[str] = Field(
+    name: str | None = Field(default=None, description="Tool name if role=tool")
+    tool_call_id: str | None = Field(
         default=None, description="Tool call ID if role=tool"
     )
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -42,7 +43,7 @@ class ConversationMemory(BaseModel):
     )
 
     # Derived summary of older conversations
-    summary: Optional[str] = Field(
+    summary: str | None = Field(
         default=None,
         description="Summary of conversation history beyond the recent window",
     )

@@ -4,7 +4,8 @@ OpenAI Provider
 Direct OpenAI API implementation of BaseLLMProvider.
 """
 
-from typing import AsyncIterator, Any
+from collections.abc import AsyncIterator
+from typing import Any
 
 from sxth_mind.providers.base import BaseLLMProvider, LLMResponse, Message, ToolCall
 

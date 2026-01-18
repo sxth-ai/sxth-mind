@@ -6,7 +6,8 @@ for a specific project/conversation thread.
 """
 
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -31,13 +32,13 @@ class ProjectMind(BaseModel):
     project_id: str = Field(..., description="External project ID from your system")
 
     # Project type hint for the adapter
-    project_type: Optional[str] = Field(
+    project_type: str | None = Field(
         default=None,
         description="Project type (e.g., 'deal', 'study_path', 'habit')",
     )
 
     # Journey stage (adapter-defined)
-    journey_stage: Optional[str] = Field(
+    journey_stage: str | None = Field(
         default=None,
         description="Current journey stage (adapter-specific)",
     )
@@ -67,17 +68,17 @@ class ProjectMind(BaseModel):
         ge=0,
         description="Interactions on this project",
     )
-    last_interaction: Optional[datetime] = Field(
+    last_interaction: datetime | None = Field(
         default=None,
         description="Last interaction on this project",
     )
 
     # Nudge preferences (project-level overrides)
-    nudge_frequency_override: Optional[str] = Field(
+    nudge_frequency_override: str | None = Field(
         default=None,
         description="Override nudge frequency for this project",
     )
-    muted_topics_override: Optional[list[str]] = Field(
+    muted_topics_override: list[str] | None = Field(
         default=None,
         description="Override muted topics for this project",
     )

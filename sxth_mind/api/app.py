@@ -4,19 +4,17 @@ FastAPI Application Factory
 Creates and configures the sxth-mind HTTP API.
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from sxth_mind.api.routes import router
 from sxth_mind.adapters.base import BaseAdapter
+from sxth_mind.mind import Mind
 from sxth_mind.providers.base import BaseLLMProvider
 from sxth_mind.storage.base import BaseStorage
 from sxth_mind.storage.memory import MemoryStorage
-from sxth_mind.mind import Mind
-
 
 # Global mind instance (set during app creation)
 _mind: Mind | None = None
@@ -96,7 +94,8 @@ def create_app(
             allow_headers=["*"],
         )
 
-    # Include routes
+    # Import routes here to avoid circular imports
+    from sxth_mind.api.routes import router
     app.include_router(router)
 
     return app

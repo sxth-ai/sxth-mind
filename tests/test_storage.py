@@ -2,8 +2,8 @@
 
 import pytest
 
+from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
 from sxth_mind.storage import MemoryStorage
-from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory
 
 
 class TestMemoryStorage:

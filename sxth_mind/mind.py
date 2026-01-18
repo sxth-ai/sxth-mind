@@ -9,14 +9,14 @@ The Mind is the central interface for sxth-mind. It coordinates:
 And exposes a simple API: chat, get_state, get_nudges.
 """
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 from uuid import uuid4
 
 from sxth_mind.adapters.base import BaseAdapter
 from sxth_mind.providers.base import BaseLLMProvider, Message
+from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
 from sxth_mind.storage.memory import MemoryStorage
-from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory
 
 
 class Mind:

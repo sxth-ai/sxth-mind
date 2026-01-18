@@ -4,14 +4,13 @@ API Routes
 HTTP endpoints for sxth-mind.
 """
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from sxth_mind.api.app import get_mind
-
 
 router = APIRouter()
 
@@ -232,17 +231,9 @@ async def dismiss_nudge(nudge_id: str):
 
     The nudge will be marked as dismissed and won't appear again.
     """
-    mind = get_mind()
-
-    # Find and update the nudge
-    # Note: This requires iterating through nudges since we don't have direct ID lookup
-    # In a production system, you'd want a more efficient lookup
-    all_nudges = []
-
-    # For memory storage, we need to search through all users
-    # This is a limitation of the simple storage interface
-    # A real implementation would have get_nudge_by_id()
-
+    # Note: This is a stub implementation.
+    # A real implementation would lookup the nudge by ID and update its status.
+    # For now, we just acknowledge the request.
     return {"status": "dismissed", "nudge_id": nudge_id}
 
 

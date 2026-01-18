@@ -5,7 +5,8 @@ Patterns and observations detected by the Mind.
 """
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -18,10 +19,10 @@ class Insight(BaseModel):
     """
 
     id: str = Field(default="", description="Unique identifier")
-    user_mind_id: Optional[str] = Field(
+    user_mind_id: str | None = Field(
         default=None, description="Reference to UserMind (if user-level)"
     )
-    project_mind_id: Optional[str] = Field(
+    project_mind_id: str | None = Field(
         default=None, description="Reference to ProjectMind (if project-level)"
     )
 
@@ -49,7 +50,7 @@ class Insight(BaseModel):
         default=False,
         description="Whether user has acknowledged this insight",
     )
-    acknowledged_at: Optional[datetime] = Field(default=None)
+    acknowledged_at: datetime | None = Field(default=None)
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

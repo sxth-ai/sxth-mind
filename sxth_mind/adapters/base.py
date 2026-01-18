@@ -9,7 +9,7 @@ nudge templates, and tools.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from sxth_mind.schemas import UserMind, ProjectMind
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class BaseAdapter(ABC):

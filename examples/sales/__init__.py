@@ -8,7 +8,7 @@ an adapter for B2B sales workflows.
 from typing import Any
 
 from sxth_mind.adapters.base import BaseAdapter
-from sxth_mind.schemas import UserMind, ProjectMind
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class SalesAdapter(BaseAdapter):

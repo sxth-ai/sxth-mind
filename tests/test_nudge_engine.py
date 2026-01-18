@@ -1,16 +1,17 @@
 """Tests for BaselineNudgeEngine."""
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sxth_mind.engine import BaselineNudgeEngine
-from sxth_mind.storage import MemoryStorage
-from sxth_mind.schemas import UserMind, ProjectMind
 from examples.habits import HabitCoachAdapter
 from examples.sales import SalesAdapter
+from sxth_mind.engine import BaselineNudgeEngine
+from sxth_mind.schemas import ProjectMind, UserMind
+from sxth_mind.storage import MemoryStorage
 
 
 class TestBaselineNudgeEngine:

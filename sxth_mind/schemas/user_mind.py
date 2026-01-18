@@ -6,7 +6,8 @@ that persist across all projects/conversations for a user.
 """
 
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -40,7 +41,7 @@ class UserMind(BaseModel):
         ge=0,
         description="Total interactions across all projects",
     )
-    last_interaction: Optional[datetime] = Field(
+    last_interaction: datetime | None = Field(
         default=None,
         description="Timestamp of last interaction",
     )
@@ -66,7 +67,7 @@ class UserMind(BaseModel):
     )
 
     # Domain-specific identity (adapter interprets this)
-    identity_type: Optional[str] = Field(
+    identity_type: str | None = Field(
         default=None,
         description="Identity type key (e.g., 'founder', 'student', 'sales_rep')",
     )

@@ -3,6 +3,7 @@
 from sxth_mind.storage.base import BaseStorage
 from sxth_mind.storage.memory import MemoryStorage
 
+
 # Lazy import for optional dependencies
 def __getattr__(name: str):
     if name == "SQLiteStorage":

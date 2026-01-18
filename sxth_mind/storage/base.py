@@ -7,7 +7,7 @@ in your preferred backend (memory, SQLite, Postgres, etc.)
 
 from abc import ABC, abstractmethod
 
-from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory, Nudge
+from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
 
 
 class BaseStorage(ABC):

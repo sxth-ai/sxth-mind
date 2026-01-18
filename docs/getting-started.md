@@ -1,0 +1,336 @@
+# Getting Started with sxth-mind
+
+This guide will walk you through building your first AI application with sxth-mind.
+
+## What You'll Build
+
+A simple sales assistant that:
+1. Remembers user context across conversations
+2. Detects patterns in user behavior
+3. Adapts its responses based on journey stage
+
+## Prerequisites
+
+- Python 3.10+
+- An OpenAI API key (or any LLM provider)
+
+## Installation
+
+```bash
+pip install sxth-mind[openai]
+```
+
+## Step 1: Create Your First Mind
+
+```python
+import asyncio
+from sxth_mind import Mind
+from examples.sales import SalesAdapter
+
+async def main():
+    # Create a Mind with the Sales adapter
+    mind = Mind(adapter=SalesAdapter())
+
+    # Have a conversation
+    response = await mind.chat(
+        user_id="user_1",
+        message="I'm working on a deal with Acme Corp"
+    )
+    print(f"Assistant: {response}")
+
+asyncio.run(main())
+```
+
+That's it! The Mind will:
+- Create a UserMind for `user_1` (first interaction)
+- Create a ProjectMind for the default project
+- Generate a context-aware response
+- Update state after the interaction
+
+## Step 2: See How State Accumulates
+
+```python
+async def conversation_demo():
+    mind = Mind(adapter=SalesAdapter())
+
+    # First message
+    response1 = await mind.chat("user_1", "Working on a deal with Acme Corp")
+    print(f"1: {response1}\n")
+
+    # Second message
+    response2 = await mind.chat("user_1", "Sent them a proposal yesterday")
+    print(f"2: {response2}\n")
+
+    # Third message
+    response3 = await mind.chat("user_1", "No response yet, should I follow up?")
+    print(f"3: {response3}\n")
+
+    # Check what the Mind knows
+    state = await mind.get_state("user_1")
+    print(f"Interactions: {state['user_mind']['total_interactions']}")
+    print(f"Journey stage: {state['project_mind']['journey_stage']}")
+
+asyncio.run(conversation_demo())
+```
+
+By the third message, the Mind knows:
+- User has been interacting about this deal
+- They're in the "qualifying" or "proposing" stage
+- They're asking about follow-up timing
+
+## Step 3: Add Persistence
+
+By default, state is stored in memory and lost when the program exits. Add SQLite for persistence:
+
+```bash
+pip install sxth-mind[sqlite]
+```
+
+```python
+from sxth_mind import Mind
+from sxth_mind.storage import SQLiteStorage
+from examples.sales import SalesAdapter
+
+# State persists to minds.db
+mind = Mind(
+    adapter=SalesAdapter(),
+    storage=SQLiteStorage("minds.db"),
+)
+```
+
+Now user state survives restarts.
+
+## Step 4: Configure the LLM Provider
+
+By default, sxth-mind uses OpenAI with `gpt-4o-mini`. To customize:
+
+```python
+from sxth_mind import Mind
+from sxth_mind.providers.openai import OpenAIProvider
+from examples.sales import SalesAdapter
+
+mind = Mind(
+    adapter=SalesAdapter(),
+    provider=OpenAIProvider(
+        api_key="sk-...",           # Or set OPENAI_API_KEY env var
+        default_model="gpt-4o",     # Use GPT-4o instead
+    ),
+)
+```
+
+## Step 5: Run the HTTP API
+
+For production use, run sxth-mind as an API server:
+
+```bash
+pip install sxth-mind[api]
+sxth-mind serve --adapter sales --port 8000
+```
+
+Then make requests:
+
+```bash
+# Send a message
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_1", "message": "Working on a new deal"}'
+
+# Get user state
+curl http://localhost:8000/state/user_1
+
+# Get explanation
+curl http://localhost:8000/explain/user_1
+```
+
+## Step 6: Try Different Adapters
+
+sxth-mind comes with three example adapters:
+
+### Habits
+
+```python
+from examples.habits import HabitCoachAdapter
+
+mind = Mind(adapter=HabitCoachAdapter())
+
+await mind.chat("user_1", "I want to start exercising daily")
+await mind.chat("user_1", "Did my workout today!")
+await mind.chat("user_1", "Missed yesterday, feeling bad about it")
+```
+
+### Learning
+
+```python
+from examples.learning import LearningAdapter
+
+mind = Mind(adapter=LearningAdapter())
+
+await mind.chat("user_1", "I want to learn Python")
+await mind.chat("user_1", "What are list comprehensions?")
+await mind.chat("user_1", "I don't understand, can you show an example?")
+```
+
+## Step 7: Build Your Own Adapter
+
+Create an adapter for your domain:
+
+```python
+from sxth_mind import BaseAdapter, Mind
+from sxth_mind.schemas import UserMind, ProjectMind
+
+class CustomerSuccessAdapter(BaseAdapter):
+    @property
+    def name(self) -> str:
+        return "customer_success"
+
+    @property
+    def display_name(self) -> str:
+        return "Customer Success"
+
+    def get_identity_types(self):
+        return [
+            {"key": "champion", "traits": ["enthusiastic", "internal advocate"]},
+            {"key": "skeptic", "traits": ["needs proof", "risk-averse"]},
+            {"key": "busy", "traits": ["time-constrained", "wants quick wins"]},
+            {"key": "technical", "traits": ["detail-oriented", "wants to understand"]},
+        ]
+
+    def get_journey_stages(self):
+        return [
+            {
+                "key": "onboarding",
+                "tone": "helpful",
+                "guidance": "Guide them through setup. Be patient and thorough.",
+            },
+            {
+                "key": "adopting",
+                "tone": "encouraging",
+                "guidance": "Help them see value. Celebrate small wins.",
+            },
+            {
+                "key": "expanding",
+                "tone": "strategic",
+                "guidance": "Suggest advanced features. Connect to business goals.",
+            },
+            {
+                "key": "at_risk",
+                "tone": "supportive",
+                "guidance": "Understand blockers. Offer extra help.",
+            },
+        ]
+
+    def detect_journey_stage(self, project_mind: ProjectMind) -> str:
+        if project_mind.interaction_count < 5:
+            return "onboarding"
+        if project_mind.days_since_activity > 14:
+            return "at_risk"
+        if project_mind.momentum_score > 0.7:
+            return "expanding"
+        return "adopting"
+
+    def get_nudge_templates(self):
+        return {
+            "check_in": {
+                "title": "How's it going?",
+                "template": "Haven't heard from you in {days} days. Need any help?",
+                "priority": 5,
+            },
+            "feature_tip": {
+                "title": "Did you know?",
+                "template": "Based on your usage, you might like {feature}.",
+                "priority": 3,
+            },
+        }
+
+    def get_system_prompt(self, user_mind: UserMind, project_mind: ProjectMind) -> str:
+        stage = project_mind.journey_stage or self.detect_journey_stage(project_mind)
+        stage_info = next(
+            (s for s in self.get_journey_stages() if s["key"] == stage),
+            self.get_journey_stages()[0]
+        )
+
+        return f"""You are a helpful Customer Success Manager.
+
+Current stage: {stage_info['key']}
+Tone: {stage_info['tone']}
+Guidance: {stage_info['guidance']}
+
+User interactions: {user_mind.total_interactions}
+"""
+
+# Use it
+mind = Mind(adapter=CustomerSuccessAdapter())
+response = await mind.chat("user_1", "Hi, just signed up!")
+```
+
+## Next Steps
+
+1. **Read the full API docs** - See all available methods and options
+2. **Explore the example adapters** - Study how Sales, Habits, and Learning work
+3. **Check out the nudge engine** - Add proactive outreach
+4. **Join the community** - Share your adapters and get help
+
+## Common Patterns
+
+### Multi-Project Support
+
+Track multiple contexts per user:
+
+```python
+# User working on multiple deals
+await mind.chat("user_1", "Update on Acme Corp", project_id="deal_acme")
+await mind.chat("user_1", "Starting work on BigCo", project_id="deal_bigco")
+```
+
+### Explain State for Debugging
+
+```python
+explanation = await mind.explain_state("user_1")
+print(explanation)
+# "User has had 12 interactions. Currently in 'proposing' stage.
+#  Pattern: tends to send proposals early. Last active 2 days ago."
+```
+
+### Generate Nudges
+
+```python
+from sxth_mind.engine import BaselineNudgeEngine
+
+engine = BaselineNudgeEngine(mind.adapter, mind.storage)
+nudges = await engine.check_and_generate("user_1")
+
+for nudge in nudges:
+    print(f"[{nudge.priority}] {nudge.title}: {nudge.message}")
+```
+
+## Troubleshooting
+
+### "OpenAI package not installed"
+
+```bash
+pip install sxth-mind[openai]
+```
+
+### "No module named 'aiosqlite'"
+
+```bash
+pip install sxth-mind[sqlite]
+```
+
+### "No response from LLM"
+
+1. Check your `OPENAI_API_KEY` environment variable
+2. Or pass the key explicitly: `OpenAIProvider(api_key="sk-...")`
+
+### State not persisting
+
+Make sure you're using SQLiteStorage:
+
+```python
+from sxth_mind.storage import SQLiteStorage
+mind = Mind(adapter=..., storage=SQLiteStorage("minds.db"))
+```
+
+---
+
+Questions? Issues? [Open a GitHub issue](https://github.com/toywobot/sxth-mind/issues).

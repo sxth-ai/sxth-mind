@@ -6,7 +6,9 @@ framework with sxth-mind (Agno, LangChain, direct OpenAI, etc.)
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Any
+from collections.abc import AsyncIterator
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
