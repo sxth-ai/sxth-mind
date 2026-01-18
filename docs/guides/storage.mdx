@@ -1,0 +1,147 @@
+---
+title: "Storage"
+description: "Configure persistence for cognitive state"
+---
+
+# Storage
+
+sxth-mind supports pluggable storage backends for persisting cognitive state.
+
+## Available Backends
+
+### Memory (Default)
+
+In-memory storage. Data is lost when the process exits. Good for development and testing.
+
+```python
+from sxth_mind import Mind
+from examples.sales import SalesAdapter
+
+# Memory storage is the default
+mind = Mind(adapter=SalesAdapter())
+```
+
+### SQLite
+
+Persistent storage using SQLite. Good for single-server deployments.
+
+```bash
+pip install sxth-mind[sqlite]
+```
+
+```python
+from sxth_mind import Mind
+from sxth_mind.storage import SQLiteStorage
+from examples.sales import SalesAdapter
+
+mind = Mind(
+    adapter=SalesAdapter(),
+    storage=SQLiteStorage("mind.db"),
+)
+```
+
+The SQLite storage automatically creates these tables:
+- `user_minds` — User-level state
+- `project_minds` — Project-specific state
+- `memories` — Conversation history
+- `nudges` — Proactive suggestions
+
+## Custom Storage
+
+Implement the `BaseStorage` interface for custom backends (Redis, PostgreSQL, MongoDB, etc.):
+
+```python
+from sxth_mind.storage.base import BaseStorage
+from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory, Nudge
+
+class MyStorage(BaseStorage):
+    async def initialize(self) -> None:
+        """Initialize the storage (create tables, connections, etc.)."""
+        pass
+
+    async def close(self) -> None:
+        """Clean up resources."""
+        pass
+
+    # UserMind operations
+    async def get_user_mind(self, user_id: str) -> UserMind | None:
+        ...
+
+    async def save_user_mind(self, user_mind: UserMind) -> None:
+        ...
+
+    async def delete_user_mind(self, user_id: str) -> None:
+        ...
+
+    # ProjectMind operations
+    async def get_project_mind(self, user_id: str, project_id: str) -> ProjectMind | None:
+        ...
+
+    async def save_project_mind(self, project_mind: ProjectMind) -> None:
+        ...
+
+    async def get_project_minds_for_user(self, user_id: str) -> list[ProjectMind]:
+        ...
+
+    async def delete_project_mind(self, user_id: str, project_id: str) -> None:
+        ...
+
+    # Memory operations
+    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None:
+        ...
+
+    async def save_memory(self, memory: ConversationMemory) -> None:
+        ...
+
+    # Nudge operations
+    async def get_pending_nudges(self, user_id: str) -> list[Nudge]:
+        ...
+
+    async def save_nudge(self, nudge: Nudge) -> None:
+        ...
+```
+
+Then use it:
+
+```python
+mind = Mind(adapter=SalesAdapter(), storage=MyStorage())
+```
+
+## Storage Lifecycle
+
+When using the HTTP API, storage is initialized and closed automatically via FastAPI's lifespan:
+
+```python
+from sxth_mind.api import create_app
+
+app = create_app(
+    adapter=SalesAdapter(),
+    storage=SQLiteStorage("mind.db"),  # Initialized on startup, closed on shutdown
+)
+```
+
+For direct usage, initialize manually if needed:
+
+```python
+storage = SQLiteStorage("mind.db")
+await storage.initialize()
+
+mind = Mind(adapter=SalesAdapter(), storage=storage)
+
+# ... use mind ...
+
+await storage.close()
+```
+
+## Data Model
+
+All storage backends persist these entities:
+
+| Entity | Description | Key |
+|--------|-------------|-----|
+| UserMind | User-level state | `user_id` |
+| ProjectMind | Project-specific state | `(user_id, project_id)` |
+| ConversationMemory | Message history | `project_mind_id` |
+| Nudge | Proactive suggestions | `id` |
+
+Data is serialized as JSON using Pydantic's `model_dump_json()` and deserialized with `model_validate_json()`.

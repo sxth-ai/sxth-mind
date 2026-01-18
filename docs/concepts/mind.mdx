@@ -1,0 +1,115 @@
+---
+title: "Mind"
+description: "The central abstraction for cognitive state management"
+---
+
+# Mind
+
+The `Mind` is the core abstraction in sxth-mind. It coordinates:
+
+- **Adapter** — Domain-specific behavior (identity types, journey stages, nudges)
+- **Provider** — LLM calls (OpenAI, custom, etc.)
+- **Storage** — Persistence (memory, SQLite, custom)
+
+## Creating a Mind
+
+```python
+from sxth_mind import Mind
+from sxth_mind.storage import SQLiteStorage
+from sxth_mind.providers.openai import OpenAIProvider
+from examples.sales import SalesAdapter
+
+mind = Mind(
+    adapter=SalesAdapter(),                     # Required
+    provider=OpenAIProvider(),                  # Optional (defaults to OpenAI)
+    storage=SQLiteStorage("mind.db"),           # Optional (defaults to memory)
+)
+```
+
+## Core Methods
+
+### chat()
+
+The primary interface. Handles everything automatically:
+
+1. Loads or creates UserMind and ProjectMind
+2. Builds context-aware prompt using the adapter
+3. Calls the LLM
+4. Updates state based on the interaction
+5. Returns the response
+
+```python
+response = await mind.chat(
+    user_id="user_123",
+    message="Following up with the enterprise lead",
+    project_id="deal_acme",  # Optional, defaults to "default"
+)
+```
+
+### chat_stream()
+
+Same as `chat()`, but yields tokens as they're generated:
+
+```python
+async for token in mind.chat_stream("user_123", "Hello"):
+    print(token, end="", flush=True)
+```
+
+### get_state()
+
+Retrieve the current cognitive state for introspection or custom use:
+
+```python
+state = await mind.get_state("user_123", project_id="deal_acme")
+
+# Use state to personalize any LLM call
+patterns = state["user_mind"]["patterns"]
+journey_stage = state["project_mind"]["journey_stage"]
+```
+
+### explain_state()
+
+Get a human-readable summary of what the Mind knows:
+
+```python
+summary = await mind.explain_state("user_123")
+print(summary)
+# "User has logged 15 interactions. Pattern: enterprise deals need 4+ touches.
+#  Current stage: negotiating (tone: strategic)"
+```
+
+### get_pending_nudges()
+
+Retrieve proactive suggestions for a user:
+
+```python
+nudges = await mind.get_pending_nudges("user_123")
+for nudge in nudges:
+    print(f"{nudge.title}: {nudge.message}")
+```
+
+## Using State for Custom Personalization
+
+You don't have to use `mind.chat()`. Get state and use it however you want:
+
+```python
+# Get user understanding
+state = await mind.get_state("user_123")
+user_patterns = state["user_mind"]["patterns"]
+journey_stage = state["project_mind"]["journey_stage"]
+
+# Use it to personalize a dashboard
+if journey_stage == "onboarding":
+    show_tutorial_widgets()
+elif user_patterns.get("prefers_detailed"):
+    show_detailed_analytics()
+
+# Use it in your own LLM calls
+system_prompt = f"""
+User is in the {journey_stage} stage.
+Known patterns: {user_patterns}
+Adapt your response accordingly.
+"""
+```
+
+This makes sxth-mind useful for any AI-powered feature, not just chat.

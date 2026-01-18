@@ -1,0 +1,179 @@
+---
+title: "State"
+description: "Understanding UserMind, ProjectMind, and ConversationMemory"
+---
+
+# Cognitive State
+
+sxth-mind maintains three levels of state:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        UserMind                              │
+│  User-level understanding (persists across all projects)    │
+│  - Identity type, patterns, preferences, trust score        │
+├─────────────────────────────────────────────────────────────┤
+│                       ProjectMind                            │
+│  Project-specific context (one per project/deal/habit)      │
+│  - Journey stage, momentum, context data, progress          │
+├─────────────────────────────────────────────────────────────┤
+│                   ConversationMemory                         │
+│  Recent message history (sliding window)                     │
+│  - Last N messages, key topics                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## UserMind
+
+User-level understanding that persists across all projects and conversations.
+
+```python
+class UserMind:
+    user_id: str                    # Your user's ID
+
+    # Identity
+    identity_type: str | None       # "hunter", "farmer", "visual_learner", etc.
+    identity_data: dict             # Adapter-specific identity attributes
+
+    # Patterns
+    patterns: dict                  # Detected behavioral patterns
+    preferences: dict               # User preferences
+
+    # Engagement
+    total_interactions: int         # Across all projects
+    trust_score: float              # 0.0 to 1.0
+
+    # Communication
+    preferred_tone: str             # "direct", "encouraging", "patient"
+    response_style: str             # "brief", "detailed", "socratic"
+```
+
+### Accessing UserMind
+
+```python
+state = await mind.get_state("user_123")
+user_mind = state["user_mind"]
+
+# Check patterns
+if user_mind["patterns"].get("follows_up_frequently"):
+    # Adjust response accordingly
+    pass
+
+# Check identity
+if user_mind["identity_type"] == "visual_learner":
+    # Include more diagrams/examples
+    pass
+```
+
+## ProjectMind
+
+Context-specific state for a particular project, deal, habit, or topic.
+
+```python
+class ProjectMind:
+    project_id: str                 # Your project identifier
+    user_mind_id: str               # Link to parent UserMind
+
+    # Journey
+    journey_stage: str | None       # "prospecting", "qualifying", etc.
+    momentum_score: float           # 0.0 to 1.0
+    days_since_activity: int
+
+    # Metrics
+    interaction_count: int          # For this project
+    trust_score: float              # Project-specific trust
+
+    # Custom data (adapter-defined)
+    context_data: dict              # Flexible context storage
+    progress_data: dict             # Progress metrics
+```
+
+### Multi-Project Support
+
+Users can have multiple projects:
+
+```python
+# Different deals for a sales rep
+await mind.chat("user_1", "Update on Acme", project_id="deal_acme")
+await mind.chat("user_1", "BigCo wants a demo", project_id="deal_bigco")
+
+# Different habits for a user
+await mind.chat("user_1", "Did my workout", project_id="habit_exercise")
+await mind.chat("user_1", "Read for 30 mins", project_id="habit_reading")
+```
+
+Each project maintains its own state (journey stage, momentum, context).
+
+## ConversationMemory
+
+Sliding window of recent messages for context.
+
+```python
+class ConversationMemory:
+    project_mind_id: str
+    messages: list[Message]         # Recent messages
+    summary: str | None             # Summary of older messages
+    key_topics: list[str]           # Extracted topics
+```
+
+The Mind automatically:
+- Keeps the last N messages in full
+- Summarizes older messages
+- Extracts key topics for quick context
+
+## State Evolution
+
+State evolves with each interaction:
+
+| Interaction | What Happens |
+|-------------|--------------|
+| 1 | UserMind created, ProjectMind created, initial stage detected |
+| 2-5 | Patterns start forming, journey stage may shift |
+| 5-10 | Identity type may be detected, trust score increases |
+| 10+ | Rich patterns available, proactive insights possible |
+
+```python
+# Early interaction
+state = await mind.get_state("user_1")
+# → {"patterns": {}, "identity_type": null, "journey_stage": "prospecting"}
+
+# After 10 interactions
+state = await mind.get_state("user_1")
+# → {"patterns": {"follows_up_frequently": true, "prefers_email": true},
+#    "identity_type": "hunter", "journey_stage": "negotiating"}
+```
+
+## Inspecting State
+
+### Programmatic Access
+
+```python
+state = await mind.get_state("user_123", project_id="deal_acme")
+
+user_mind = state["user_mind"]
+project_mind = state["project_mind"]
+
+print(f"Total interactions: {user_mind['total_interactions']}")
+print(f"Journey stage: {project_mind['journey_stage']}")
+print(f"Patterns: {user_mind['patterns']}")
+```
+
+### Human-Readable Summary
+
+```python
+explanation = await mind.explain_state("user_123", project_id="deal_acme")
+print(explanation)
+```
+
+Output:
+```
+User: user_123
+Total interactions: 15
+Trust score: 0.72
+Identity type: hunter
+
+Project: deal_acme
+Journey stage: negotiating
+Interactions: 8
+Momentum: 0.85
+```

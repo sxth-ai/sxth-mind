@@ -1,0 +1,76 @@
+---
+title: "Introduction"
+description: "The understanding layer for adaptive AI products"
+---
+
+# What is sxth-mind?
+
+sxth-mind is a **cognitive state layer** for AI applications. It accumulates understanding about users over time—detecting patterns, tracking journey stages, and adapting responses based on derived insights.
+
+Use it to personalize **any** LLM-powered experience:
+
+- **Chat assistants** that remember user patterns across sessions
+- **Personalized dashboards** that adapt to user behavior
+- **Content recommendations** informed by journey stage
+- **Proactive nudges** triggered by inactivity or momentum drops
+- **Any AI feature** where understanding should evolve over time
+
+## How it works
+
+```python
+from sxth_mind import Mind
+from examples.sales import SalesAdapter
+
+mind = Mind(adapter=SalesAdapter())
+
+# Get user state to personalize any LLM call
+state = await mind.get_state("user_1")
+# → Use state["user_mind"]["patterns"] to customize prompts, UI, recommendations
+
+# Or use the built-in chat with automatic state management
+await mind.chat("user_1", "Following up with the enterprise lead")
+```
+
+Unlike chat history retrieval, sxth-mind maintains **derived understanding** that evolves with each interaction.
+
+## Why sxth-mind?
+
+<CardGroup cols={3}>
+  <Card title="Derived Understanding" icon="brain">
+    Not just retrieval—patterns, identity, and journey stage evolve with each interaction
+  </Card>
+  <Card title="Pluggable Everything" icon="plug">
+    Bring your own LLM provider, storage backend, and domain adapter
+  </Card>
+  <Card title="Framework Agnostic" icon="cubes">
+    Works with OpenAI, Anthropic, or any LLM. Complements agent frameworks
+  </Card>
+</CardGroup>
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                           Mind                                   │
+│                                                                  │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│   │  UserMind   │  │ ProjectMind │  │   Memory    │            │
+│   │  (identity) │  │  (context)  │  │  (history)  │            │
+│   └─────────────┘  └─────────────┘  └─────────────┘            │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        ▼                   ▼                   ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│    Adapter    │   │   Provider    │   │    Storage    │
+│  (domain)     │   │  (LLM)        │   │  (persist)    │
+└───────────────┘   └───────────────┘   └───────────────┘
+```
+
+## What sxth-mind is NOT
+
+- **Not an agent framework** — We don't plan or execute actions
+- **Not a vector database** — We don't do similarity search
+- **Not chat history** — We store derived understanding, not transcripts
+
+sxth-mind is **cognitive infrastructure**. You bring the intelligence; we maintain the understanding.

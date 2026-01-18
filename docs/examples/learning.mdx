@@ -1,0 +1,129 @@
+---
+title: "Learning Adapter"
+description: "Skill development and progress tracking"
+---
+
+# Learning Adapter
+
+The Learning adapter helps users develop skills with progress tracking and stuck detection.
+
+## Installation
+
+```python
+from sxth_mind import Mind
+from examples.learning import LearningAdapter
+
+mind = Mind(adapter=LearningAdapter())
+```
+
+## Identity Types
+
+| Type | Description | Teaching Style |
+|------|-------------|----------------|
+| `conceptual` | Needs to understand "why" | Explain theory first |
+| `hands_on` | Learns by doing | Jump to examples |
+| `structured` | Follows curriculum | Step-by-step progression |
+| `explorer` | Self-directed discovery | Provide resources, let them lead |
+
+## Journey Stages
+
+```
+exploring → foundations → practicing → applying → deepening
+              ↓                           ↓
+           stuck ←────────────────────────┘
+```
+
+| Stage | Tone | Focus |
+|-------|------|-------|
+| `exploring` | Welcoming | Understand goals, assess level |
+| `foundations` | Patient | Core concepts, fundamentals |
+| `practicing` | Encouraging | Exercises, repetition |
+| `applying` | Challenging | Projects, real-world use |
+| `deepening` | Collaborative | Advanced topics, edge cases |
+| `stuck` | Supportive | Identify blocker, simplify |
+
+## Pattern Detection
+
+The Learning adapter tracks:
+
+- **Exercises completed** — Practice volume
+- **Projects completed** — Applied learning
+- **Stuck indicators** — Repeated questions, frustration signals
+- **Learning velocity** — Progress rate
+- **Preferred format** — Examples vs. theory
+
+## Nudge Templates
+
+| Nudge | Priority | Trigger |
+|-------|----------|---------|
+| `practice_reminder` | 5 | No practice in 3+ days |
+| `stuck_support` | 8 | Detected frustration or repeated asks |
+| `milestone` | 4 | Completed exercise set or project |
+| `next_level` | 5 | Ready to advance |
+
+## Example Usage
+
+```python
+import asyncio
+from sxth_mind import Mind
+from examples.learning import LearningAdapter
+
+async def main():
+    mind = Mind(adapter=LearningAdapter())
+
+    # Learning Python
+    await mind.chat("user_1", "I want to learn Python", project_id="learn_python")
+    await mind.chat("user_1", "What are list comprehensions?", project_id="learn_python")
+    await mind.chat("user_1", "I don't understand, can you show an example?", project_id="learn_python")
+
+    # The adapter notices preference for examples
+    state = await mind.get_state("user_1", project_id="learn_python")
+    print(f"Identity type: {state['user_mind'].get('identity_type')}")
+    # → Likely "hands_on" based on asking for examples
+
+asyncio.run(main())
+```
+
+## Multi-Topic Support
+
+Track multiple learning topics:
+
+```python
+await mind.chat("user_1", "Learning Python basics", project_id="learn_python")
+await mind.chat("user_1", "Started a React course", project_id="learn_react")
+await mind.chat("user_1", "Practicing SQL queries", project_id="learn_sql")
+
+# Each topic has its own progress and stage
+```
+
+## Stuck Detection
+
+The adapter detects when users are stuck:
+
+```python
+# These signals trigger "stuck" stage:
+# - Repeated similar questions
+# - Phrases like "I don't understand", "confused", "stuck"
+# - Long gaps in progress
+# - Decreasing momentum
+
+# Response adapts:
+# - Simplify explanations
+# - Offer alternative approaches
+# - Break down into smaller steps
+```
+
+## Context Data
+
+The adapter stores in `project_mind.context_data`:
+
+```python
+{
+    "topic": "python",
+    "current_module": "loops",
+    "exercises_completed": 12,
+    "projects_completed": 1,
+    "stuck_count": 2,
+    "preferred_format": "examples",
+}
+```

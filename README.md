@@ -6,7 +6,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/sxth-mind.svg)](https://pypi.org/project/sxth-mind/)
 
-[Documentation](docs/getting-started.md) · [Examples](examples/) · [Contributing](CONTRIBUTING.md)
+[Documentation](https://docs.sxth.ai) · [Examples](examples/) · [Contributing](CONTRIBUTING.md)
 
 ---
 

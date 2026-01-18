@@ -1,0 +1,345 @@
+---
+title: "Python API"
+description: "Python SDK reference for sxth-mind"
+---
+
+# Python API
+
+Complete reference for the sxth-mind Python SDK.
+
+## Mind
+
+The central abstraction.
+
+```python
+from sxth_mind import Mind
+
+mind = Mind(
+    adapter=MyAdapter(),           # Required
+    provider=MyProvider(),         # Optional
+    storage=MyStorage(),           # Optional
+)
+```
+
+### Methods
+
+#### chat()
+
+```python
+async def chat(
+    user_id: str,
+    message: str,
+    project_id: str | None = None,
+) -> str
+```
+
+Send a message and get a response. State is managed automatically.
+
+#### chat_stream()
+
+```python
+async def chat_stream(
+    user_id: str,
+    message: str,
+    project_id: str | None = None,
+) -> AsyncIterator[str]
+```
+
+Stream a response token by token.
+
+#### get_state()
+
+```python
+async def get_state(
+    user_id: str,
+    project_id: str | None = None,
+) -> dict
+```
+
+Get cognitive state as a dictionary.
+
+#### explain_state()
+
+```python
+async def explain_state(
+    user_id: str,
+    project_id: str | None = None,
+) -> str
+```
+
+Get a human-readable state summary.
+
+#### get_pending_nudges()
+
+```python
+async def get_pending_nudges(user_id: str) -> list[Nudge]
+```
+
+Get pending nudges for a user.
+
+---
+
+## BaseAdapter
+
+Abstract base class for domain adapters.
+
+```python
+from sxth_mind import BaseAdapter
+
+class MyAdapter(BaseAdapter):
+    ...
+```
+
+### Required Methods
+
+```python
+@property
+def name(self) -> str:
+    """Unique identifier."""
+
+def get_identity_types(self) -> list[dict]:
+    """Define user archetypes."""
+
+def get_journey_stages(self) -> list[dict]:
+    """Define progression stages."""
+
+def detect_journey_stage(self, project_mind: ProjectMind) -> str:
+    """Determine current stage."""
+
+def get_nudge_templates(self) -> dict:
+    """Define nudge templates."""
+
+def get_insight_types(self) -> list[dict]:
+    """Define insight types."""
+```
+
+### Optional Methods
+
+```python
+@property
+def display_name(self) -> str:
+    """Human-readable name."""
+
+def get_system_prompt(
+    self,
+    user_mind: UserMind,
+    project_mind: ProjectMind,
+) -> str:
+    """Build context-aware system prompt."""
+
+def get_context_for_prompt(
+    self,
+    user_mind: UserMind,
+    project_mind: ProjectMind,
+) -> dict:
+    """Additional context for prompts."""
+
+def update_after_interaction(
+    self,
+    user_mind: UserMind,
+    project_mind: ProjectMind,
+    message: str,
+    response: str,
+) -> None:
+    """Custom state updates after interaction."""
+```
+
+---
+
+## Schemas
+
+### UserMind
+
+```python
+from sxth_mind.schemas import UserMind
+
+class UserMind:
+    id: str
+    user_id: str
+
+    # Identity
+    identity_type: str | None
+    identity_data: dict
+
+    # Patterns
+    patterns: dict
+    preferences: dict
+
+    # Engagement
+    total_interactions: int
+    trust_score: float  # 0.0 to 1.0
+
+    # Communication
+    preferred_tone: str
+    response_style: str
+
+    # Nudges
+    nudge_frequency: str
+    muted_topics: list[str]
+
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+```
+
+### ProjectMind
+
+```python
+from sxth_mind.schemas import ProjectMind
+
+class ProjectMind:
+    id: str
+    user_mind_id: str
+    project_id: str
+
+    # Journey
+    journey_stage: str | None
+    momentum_score: float  # 0.0 to 1.0
+    days_since_activity: int
+
+    # Metrics
+    interaction_count: int
+    trust_score: float
+
+    # Custom data
+    context_data: dict
+    progress_data: dict
+
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+```
+
+### ConversationMemory
+
+```python
+from sxth_mind.schemas import ConversationMemory
+
+class ConversationMemory:
+    id: str
+    project_mind_id: str
+    messages: list[Message]
+    summary: str | None
+    key_topics: list[str]
+```
+
+### Nudge
+
+```python
+from sxth_mind.schemas import Nudge
+
+class Nudge:
+    id: str
+    nudge_type: str
+    title: str
+    message: str
+    priority: int  # 1-10
+    status: str  # pending, delivered, dismissed, acted
+    project_mind_id: str
+    scheduled_for: datetime | None
+    delivered_at: datetime | None
+    acted_at: datetime | None
+```
+
+---
+
+## Storage
+
+### BaseStorage
+
+```python
+from sxth_mind.storage import BaseStorage
+
+class MyStorage(BaseStorage):
+    async def initialize(self) -> None: ...
+    async def close(self) -> None: ...
+
+    # UserMind
+    async def get_user_mind(self, user_id: str) -> UserMind | None: ...
+    async def save_user_mind(self, user_mind: UserMind) -> None: ...
+    async def delete_user_mind(self, user_id: str) -> None: ...
+
+    # ProjectMind
+    async def get_project_mind(self, user_id: str, project_id: str) -> ProjectMind | None: ...
+    async def save_project_mind(self, project_mind: ProjectMind) -> None: ...
+    async def get_project_minds_for_user(self, user_id: str) -> list[ProjectMind]: ...
+    async def delete_project_mind(self, user_id: str, project_id: str) -> None: ...
+
+    # Memory
+    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None: ...
+    async def save_memory(self, memory: ConversationMemory) -> None: ...
+
+    # Nudges
+    async def get_pending_nudges(self, user_id: str) -> list[Nudge]: ...
+    async def save_nudge(self, nudge: Nudge) -> None: ...
+```
+
+### MemoryStorage
+
+```python
+from sxth_mind.storage import MemoryStorage
+
+storage = MemoryStorage()
+```
+
+### SQLiteStorage
+
+```python
+from sxth_mind.storage import SQLiteStorage
+
+storage = SQLiteStorage("mind.db")
+await storage.initialize()
+```
+
+---
+
+## Providers
+
+### BaseLLMProvider
+
+```python
+from sxth_mind.providers import BaseLLMProvider, LLMResponse, Message
+
+class MyProvider(BaseLLMProvider):
+    @property
+    def default_model(self) -> str: ...
+
+    async def chat(
+        self,
+        messages: list[Message],
+        model: str | None = None,
+        tools: list[dict] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> LLMResponse: ...
+
+    async def chat_stream(
+        self,
+        messages: list[Message],
+        **kwargs,
+    ) -> AsyncIterator[str]: ...
+```
+
+### OpenAIProvider
+
+```python
+from sxth_mind.providers.openai import OpenAIProvider
+
+provider = OpenAIProvider(
+    api_key="sk-...",
+    organization="org-...",
+    base_url="https://...",
+    default_model="gpt-4o-mini",
+)
+```
+
+---
+
+## Nudge Engine
+
+```python
+from sxth_mind.engine import BaselineNudgeEngine
+
+engine = BaselineNudgeEngine(adapter, storage)
+nudges = await engine.check_and_generate("user_123", project_id="proj_1")
+```

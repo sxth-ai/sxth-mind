@@ -1,0 +1,110 @@
+---
+title: "Habits Adapter"
+description: "Streak tracking and habit building support"
+---
+
+# Habits Adapter
+
+The Habits adapter helps users build and maintain habits with streak tracking and recovery support.
+
+## Installation
+
+```python
+from sxth_mind import Mind
+from examples.habits import HabitCoachAdapter
+
+mind = Mind(adapter=HabitCoachAdapter())
+```
+
+## Identity Types
+
+| Type | Description | Coaching Style |
+|------|-------------|----------------|
+| `all_or_nothing` | Struggles with imperfection | Emphasize progress over perfection |
+| `slow_builder` | Gradual, steady progress | Patience, small wins |
+| `accountability_seeker` | Needs external motivation | Check-ins, reminders |
+| `self_motivated` | Internal drive | Minimize interruptions |
+
+## Journey Stages
+
+```
+starting → struggling → building → consistent
+              ↓                        ↓
+         recovering ←──────────────────┘
+```
+
+| Stage | Tone | Focus |
+|-------|------|-------|
+| `starting` | Encouraging | Set expectations, first wins |
+| `struggling` | Supportive | Identify blockers, reduce friction |
+| `building` | Celebratory | Reinforce progress, momentum |
+| `consistent` | Minimal | Stay out of the way |
+| `recovering` | Compassionate | No judgment, restart gently |
+
+## Pattern Detection
+
+The Habits adapter tracks:
+
+- **Streak length** — Current consecutive days
+- **Best streak** — Longest streak achieved
+- **Common blockers** — What causes missed days
+- **Time patterns** — When they usually complete
+- **Recovery rate** — How quickly they restart after breaks
+
+## Nudge Templates
+
+| Nudge | Priority | Trigger |
+|-------|----------|---------|
+| `streak_risk` | 7 | Approaching usual completion time |
+| `streak_celebration` | 5 | Milestone reached (7, 30, 100 days) |
+| `recovery_support` | 8 | Missed 2+ days |
+| `pattern_insight` | 4 | Noticed success/failure pattern |
+
+## Example Usage
+
+```python
+import asyncio
+from sxth_mind import Mind
+from examples.habits import HabitCoachAdapter
+
+async def main():
+    mind = Mind(adapter=HabitCoachAdapter())
+
+    # Daily check-ins
+    await mind.chat("user_1", "Did my morning workout!", project_id="habit_exercise")
+    await mind.chat("user_1", "Completed day 5!", project_id="habit_exercise")
+    await mind.chat("user_1", "Missed yesterday, feeling bad about it", project_id="habit_exercise")
+
+    # The adapter detects recovery stage and responds compassionately
+    state = await mind.get_state("user_1", project_id="habit_exercise")
+    print(f"Stage: {state['project_mind']['journey_stage']}")
+
+asyncio.run(main())
+```
+
+## Multi-Habit Support
+
+Track multiple habits per user:
+
+```python
+# Different habits
+await mind.chat("user_1", "Morning run done", project_id="habit_running")
+await mind.chat("user_1", "Read for 30 mins", project_id="habit_reading")
+await mind.chat("user_1", "Meditated today", project_id="habit_meditation")
+
+# Each habit has its own streak and stage
+```
+
+## Context Data
+
+The adapter stores in `project_mind.context_data`:
+
+```python
+{
+    "current_streak": 12,
+    "best_streak": 30,
+    "total_completions": 45,
+    "missed_days": 3,
+    "last_completion": "2024-01-15",
+}
+```

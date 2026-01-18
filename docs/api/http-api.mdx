@@ -1,0 +1,262 @@
+---
+title: "HTTP API"
+description: "REST API endpoints for sxth-mind"
+---
+
+# HTTP API
+
+Run sxth-mind as an HTTP service.
+
+## Starting the Server
+
+```bash
+pip install sxth-mind[api]
+sxth-mind serve --adapter sales --port 8000
+```
+
+Options:
+- `--adapter` — Adapter to use (sales, habits, learning)
+- `--port` — Port to bind (default: 8000)
+- `--host` — Host to bind (default: 0.0.0.0)
+- `--storage` — Storage backend (memory, sqlite)
+- `--db-path` — SQLite database path
+
+## Endpoints
+
+### Health Check
+
+```
+GET /health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "adapter": "sales",
+  "storage": "MemoryStorage"
+}
+```
+
+---
+
+### Chat
+
+```
+POST /chat
+```
+
+Send a message and get a response. State is managed automatically.
+
+**Request:**
+```json
+{
+  "user_id": "user_123",
+  "message": "Working on the Acme deal",
+  "project_id": "deal_acme"  // optional
+}
+```
+
+**Response:**
+```json
+{
+  "response": "Great! What stage is the Acme deal at?",
+  "user_id": "user_123",
+  "project_id": "deal_acme"
+}
+```
+
+---
+
+### Chat Stream
+
+```
+POST /chat/stream
+```
+
+Stream a response via Server-Sent Events.
+
+**Request:**
+```json
+{
+  "user_id": "user_123",
+  "message": "Tell me about pipeline stages"
+}
+```
+
+**Response (SSE):**
+```
+data: Great
+data: question
+data: !
+data: [DONE]
+```
+
+---
+
+### Get State
+
+```
+GET /state/{user_id}
+GET /state/{user_id}?project_id=deal_acme
+```
+
+Retrieve cognitive state for a user.
+
+**Response:**
+```json
+{
+  "user_id": "user_123",
+  "user_mind": {
+    "user_id": "user_123",
+    "identity_type": "hunter",
+    "patterns": {"follow_up_frequency": "high"},
+    "total_interactions": 15,
+    "trust_score": 0.72
+  },
+  "project_mind": {
+    "project_id": "deal_acme",
+    "journey_stage": "negotiating",
+    "momentum_score": 0.85,
+    "interaction_count": 8
+  }
+}
+```
+
+---
+
+### Explain State
+
+```
+GET /explain/{user_id}
+GET /explain/{user_id}?project_id=deal_acme
+```
+
+Get a human-readable summary.
+
+**Response:**
+```json
+{
+  "user_id": "user_123",
+  "explanation": "User: user_123\nTotal interactions: 15\nTrust score: 0.72\nIdentity type: hunter\n\nProject: deal_acme\nJourney stage: negotiating\nInteractions: 8\nMomentum: 0.85"
+}
+```
+
+---
+
+### Get Nudges
+
+```
+GET /nudges/{user_id}
+```
+
+Get pending nudges for a user.
+
+**Response:**
+```json
+[
+  {
+    "id": "nudge_abc123",
+    "nudge_type": "stalled_deal",
+    "title": "Deal going cold?",
+    "message": "No activity on deal_acme in 8 days. Time to re-engage?",
+    "priority": 7,
+    "status": "pending"
+  }
+]
+```
+
+---
+
+### Generate Nudges
+
+```
+POST /nudges/{user_id}/generate
+POST /nudges/{user_id}/generate?project_id=deal_acme
+```
+
+Generate new nudges based on current state.
+
+**Response:**
+```json
+[
+  {
+    "id": "nudge_xyz789",
+    "nudge_type": "momentum_drop",
+    "title": "Momentum slipping",
+    "message": "Activity on deal_acme has dropped. What's blocking?",
+    "priority": 8,
+    "status": "pending"
+  }
+]
+```
+
+---
+
+### Dismiss Nudge
+
+```
+POST /nudges/{nudge_id}/dismiss
+```
+
+Mark a nudge as dismissed.
+
+**Response:**
+```json
+{
+  "status": "dismissed",
+  "nudge_id": "nudge_abc123"
+}
+```
+
+---
+
+### Act on Nudge
+
+```
+POST /nudges/{nudge_id}/act
+```
+
+Mark a nudge as acted upon.
+
+**Response:**
+```json
+{
+  "status": "acted",
+  "nudge_id": "nudge_abc123"
+}
+```
+
+## Programmatic Usage
+
+Create a custom FastAPI app:
+
+```python
+from fastapi import FastAPI
+from sxth_mind.api import create_app
+from sxth_mind.storage import SQLiteStorage
+from examples.sales import SalesAdapter
+
+# Create the sxth-mind app
+sxth_app = create_app(
+    adapter=SalesAdapter(),
+    storage=SQLiteStorage("mind.db"),
+    cors_origins=["http://localhost:3000"],
+)
+
+# Mount it in your app
+app = FastAPI()
+app.mount("/mind", sxth_app)
+
+# Now available at /mind/chat, /mind/state/{user_id}, etc.
+```
+
+## Security Note
+
+The HTTP API has no built-in authentication. For production:
+
+1. Mount into your own app with your auth middleware
+2. Use a reverse proxy with authentication
+3. Deploy in a private network
+
+See [SECURITY.md](https://github.com/sxth-ai/sxth-mind/blob/main/SECURITY.md) for details.

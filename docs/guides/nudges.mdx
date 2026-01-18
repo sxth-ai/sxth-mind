@@ -1,0 +1,173 @@
+---
+title: "Nudges"
+description: "Proactive suggestions based on user state"
+---
+
+# Nudges
+
+Nudges are proactive suggestions generated based on user state. They help re-engage users and surface timely insights.
+
+## How Nudges Work
+
+1. **Adapter defines templates** — What nudges are possible in your domain
+2. **Engine checks triggers** — Based on state (inactivity, momentum drop, patterns)
+3. **Nudges are generated** — Stored with status `pending`
+4. **Your app delivers them** — Email, push notification, in-app banner
+5. **User acts or dismisses** — Status updated to `acted` or `dismissed`
+
+## Defining Nudge Templates
+
+In your adapter:
+
+```python
+def get_nudge_templates(self) -> dict:
+    return {
+        "stalled_deal": {
+            "title": "Deal may be stalling",
+            "template": "No activity on {deal_name} for {days} days. Time to re-engage?",
+            "priority": 7,  # 1-10, higher = more important
+        },
+        "momentum_drop": {
+            "title": "Momentum slipping",
+            "template": "Activity on {deal_name} has dropped. What's blocking progress?",
+            "priority": 8,
+        },
+        "streak_risk": {
+            "title": "Don't break your streak!",
+            "template": "You're on a {streak_days}-day streak. Keep it going!",
+            "priority": 6,
+        },
+        "milestone": {
+            "title": "Nice progress!",
+            "template": "You've completed {count} sessions. Celebrate!",
+            "priority": 3,
+        },
+    }
+```
+
+## Using the Nudge Engine
+
+```python
+from sxth_mind.engine import BaselineNudgeEngine
+
+# Create engine with adapter and storage
+engine = BaselineNudgeEngine(mind.adapter, mind.storage)
+
+# Check and generate nudges for a user
+nudges = await engine.check_and_generate("user_123")
+
+for nudge in nudges:
+    print(f"[{nudge.priority}] {nudge.title}: {nudge.message}")
+```
+
+## Retrieving Pending Nudges
+
+```python
+# Via Mind
+nudges = await mind.get_pending_nudges("user_123")
+
+# Via HTTP API
+# GET /nudges/{user_id}
+```
+
+## Nudge Lifecycle
+
+```python
+class Nudge:
+    id: str
+    nudge_type: str          # Template key
+    title: str
+    message: str
+    priority: int            # 1-10
+    status: str              # pending, delivered, dismissed, acted
+    project_mind_id: str
+    scheduled_for: datetime | None
+    delivered_at: datetime | None
+    acted_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+```
+
+### Status Flow
+
+```
+pending → delivered → acted
+                   ↘ dismissed
+```
+
+### Updating Status
+
+Via HTTP API:
+
+```bash
+# Mark as dismissed
+POST /nudges/{nudge_id}/dismiss
+
+# Mark as acted upon
+POST /nudges/{nudge_id}/act
+```
+
+## Trigger Types
+
+The baseline engine checks for:
+
+| Trigger | Description |
+|---------|-------------|
+| **Inactivity** | User hasn't interacted in X days |
+| **Momentum drop** | Activity level has decreased significantly |
+| **Pattern match** | Specific patterns detected (adapter-defined) |
+| **Stage-based** | Certain journey stages trigger nudges |
+
+## Customizing Triggers
+
+Override the engine for custom trigger logic:
+
+```python
+from sxth_mind.engine import BaselineNudgeEngine
+
+class MyNudgeEngine(BaselineNudgeEngine):
+    async def check_and_generate(
+        self,
+        user_id: str,
+        project_id: str | None = None,
+    ) -> list[Nudge]:
+        nudges = []
+
+        # Get user state
+        user_mind = await self.storage.get_user_mind(user_id)
+        if not user_mind:
+            return nudges
+
+        # Custom trigger: user hasn't logged in for 7+ days
+        if user_mind.days_since_last_interaction > 7:
+            nudges.append(self._create_nudge(
+                "comeback",
+                user_mind,
+                project_mind=None,
+                days=user_mind.days_since_last_interaction,
+            ))
+
+        # Add more custom triggers...
+
+        return nudges
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Don't spam">
+    Limit nudge frequency. Users will mute or ignore if you nudge too often.
+  </Accordion>
+  <Accordion title="Prioritize wisely">
+    High-priority nudges should be rare and important. Most should be 3-6.
+  </Accordion>
+  <Accordion title="Make them actionable">
+    Each nudge should have a clear action the user can take.
+  </Accordion>
+  <Accordion title="Respect dismissals">
+    If a user dismisses a nudge type repeatedly, consider reducing frequency.
+  </Accordion>
+  <Accordion title="Track effectiveness">
+    Monitor acted vs dismissed rates to improve nudge templates.
+  </Accordion>
+</AccordionGroup>

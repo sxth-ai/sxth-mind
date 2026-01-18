@@ -1,0 +1,104 @@
+---
+title: "Sales Adapter"
+description: "Pipeline tracking and outreach pattern detection"
+---
+
+# Sales Adapter
+
+The Sales adapter models a sales rep working deals through a pipeline.
+
+## Installation
+
+```python
+from sxth_mind import Mind
+from examples.sales import SalesAdapter
+
+mind = Mind(adapter=SalesAdapter())
+```
+
+## Identity Types
+
+| Type | Description | Traits |
+|------|-------------|--------|
+| `hunter` | New logo acquisition | Aggressive outreach, cold calling |
+| `farmer` | Account growth | Relationship building, retention |
+| `consultant` | Solution selling | Discovery, advisory |
+| `closer` | Deal mechanics | Negotiation, urgency |
+
+## Journey Stages
+
+```
+prospecting → qualifying → presenting → negotiating → closing
+                                                    ↘ nurturing
+```
+
+| Stage | Tone | Focus |
+|-------|------|-------|
+| `prospecting` | Energetic | Outreach, research |
+| `qualifying` | Curious | Discovery, decision makers |
+| `presenting` | Confident | Demos, value prop |
+| `negotiating` | Strategic | Pricing, terms |
+| `closing` | Decisive | Signatures, commitment |
+| `nurturing` | Patient | Long-term, staying top of mind |
+
+## Pattern Detection
+
+The Sales adapter detects:
+
+- **Follow-up frequency** — How often the rep follows up
+- **Outreach themes** — Email vs. phone vs. meeting
+- **Objection patterns** — Common pushback topics
+- **Deal velocity** — How fast deals move through stages
+
+## Nudge Templates
+
+| Nudge | Priority | Trigger |
+|-------|----------|---------|
+| `stalled_deal` | 7 | No activity for 7+ days |
+| `follow_up_reminder` | 6 | Mentioned follow-up intent |
+| `momentum_drop` | 8 | Activity decreased |
+| `pattern_detected` | 5 | Recurring pattern noticed |
+
+## Example Usage
+
+```python
+import asyncio
+from sxth_mind import Mind
+from examples.sales import SalesAdapter
+
+async def main():
+    mind = Mind(adapter=SalesAdapter())
+
+    # Working a deal
+    await mind.chat("rep_1", "Just had a great call with Acme Corp", project_id="deal_acme")
+    await mind.chat("rep_1", "Sent them a proposal yesterday", project_id="deal_acme")
+    await mind.chat("rep_1", "No response yet, should I follow up?", project_id="deal_acme")
+
+    # Check state
+    state = await mind.get_state("rep_1", project_id="deal_acme")
+    print(f"Stage: {state['project_mind']['journey_stage']}")
+    print(f"Patterns: {state['user_mind']['patterns']}")
+
+asyncio.run(main())
+```
+
+## System Prompt
+
+The adapter builds context-aware prompts:
+
+```
+You are a Sales AI assistant helping a sales rep work their deals.
+
+## Your Role
+You help with deal strategy, outreach, objection handling, and pipeline management.
+
+## Current Deal Stage: Qualifying
+Tone: curious
+Focus: Ask probing questions to help them qualify effectively.
+
+## Patterns & History
+Follow-up pattern: high
+Common themes: pricing, timeline
+Total interactions: 15
+Deal interactions: 8
+```

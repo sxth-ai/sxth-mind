@@ -1,0 +1,163 @@
+---
+title: "Adapters"
+description: "Domain-specific behavior configuration"
+---
+
+# Adapters
+
+Adapters define **domain-specific behavior** for your application. They tell the Mind:
+
+- **What identity types exist** — User archetypes in your domain
+- **What journey stages look like** — Progression from start to finish
+- **How to detect the current stage** — Logic based on state
+- **What nudges to send** — Proactive messages for re-engagement
+- **How to build prompts** — Context-aware system prompts
+
+The Mind handles everything else: state management, persistence, LLM calls.
+
+## Built-in Adapters
+
+sxth-mind ships with three example adapters:
+
+<CardGroup cols={3}>
+  <Card title="Sales" icon="briefcase" href="/examples/sales">
+    Pipeline tracking, outreach patterns, deal stages
+  </Card>
+  <Card title="Habits" icon="calendar-check" href="/examples/habits">
+    Streak tracking, blockers, recovery patterns
+  </Card>
+  <Card title="Learning" icon="graduation-cap" href="/examples/learning">
+    Progress tracking, stuck indicators, learning styles
+  </Card>
+</CardGroup>
+
+## Adapter Interface
+
+```python
+from sxth_mind import BaseAdapter
+from sxth_mind.schemas import UserMind, ProjectMind
+
+class MyAdapter(BaseAdapter):
+    @property
+    def name(self) -> str:
+        """Unique identifier for this adapter."""
+        return "my_app"
+
+    @property
+    def display_name(self) -> str:
+        """Human-readable name."""
+        return "My App"
+
+    def get_identity_types(self) -> list[dict]:
+        """Define user archetypes."""
+        ...
+
+    def get_journey_stages(self) -> list[dict]:
+        """Define progression stages."""
+        ...
+
+    def detect_journey_stage(self, project_mind: ProjectMind) -> str:
+        """Determine current stage from state."""
+        ...
+
+    def get_nudge_templates(self) -> dict:
+        """Define proactive message templates."""
+        ...
+
+    def get_system_prompt(self, user_mind: UserMind, project_mind: ProjectMind) -> str:
+        """Build context-aware system prompt."""
+        ...
+```
+
+## Key Concepts
+
+### Identity Types
+
+User archetypes help personalize responses:
+
+```python
+def get_identity_types(self):
+    return [
+        {
+            "key": "power_user",
+            "label": "Power User",
+            "traits": ["fast", "keyboard-driven", "wants efficiency"],
+        },
+        {
+            "key": "casual",
+            "label": "Casual User",
+            "traits": ["occasional", "exploratory", "needs guidance"],
+        },
+    ]
+```
+
+The Mind stores detected identity in `user_mind.identity_type`.
+
+### Journey Stages
+
+Stages define progression and appropriate tone:
+
+```python
+def get_journey_stages(self):
+    return [
+        {
+            "key": "onboarding",
+            "label": "Onboarding",
+            "tone": "helpful",
+            "guidance": "Guide them through setup. Be patient.",
+        },
+        {
+            "key": "proficient",
+            "label": "Proficient",
+            "tone": "efficient",
+            "guidance": "Stay out of their way. Be concise.",
+        },
+        {
+            "key": "churning",
+            "label": "At Risk",
+            "tone": "supportive",
+            "guidance": "Re-engage gently. Understand blockers.",
+        },
+    ]
+```
+
+### Stage Detection
+
+Logic to determine current stage:
+
+```python
+def detect_journey_stage(self, project_mind: ProjectMind) -> str:
+    if project_mind.interaction_count < 5:
+        return "onboarding"
+    if project_mind.days_since_activity > 30:
+        return "churning"
+    if project_mind.momentum_score > 0.7:
+        return "proficient"
+    return "active"
+```
+
+### Nudge Templates
+
+Proactive messages with placeholders:
+
+```python
+def get_nudge_templates(self):
+    return {
+        "inactivity": {
+            "title": "We miss you!",
+            "template": "It's been {days} days. Ready to continue?",
+            "priority": 5,  # 1-10
+        },
+        "milestone": {
+            "title": "Nice progress!",
+            "template": "You've completed {count} sessions. Keep it up!",
+            "priority": 3,
+        },
+    }
+```
+
+## Next Steps
+
+<Card title="Build Your Own Adapter" icon="hammer" href="/guides/building-adapters">
+  Complete guide to creating custom adapters
+</Card>

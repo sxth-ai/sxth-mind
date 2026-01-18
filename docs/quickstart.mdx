@@ -1,0 +1,88 @@
+---
+title: "Quickstart"
+description: "Get up and running with sxth-mind in 5 minutes"
+---
+
+## Installation
+
+<CodeGroup>
+```bash pip
+pip install sxth-mind[openai]
+```
+
+```bash with API server
+pip install sxth-mind[openai,api]
+```
+
+```bash with SQLite
+pip install sxth-mind[openai,sqlite]
+```
+
+```bash everything
+pip install sxth-mind[all]
+```
+</CodeGroup>
+
+## Basic Usage
+
+```python
+import asyncio
+from sxth_mind import Mind
+from examples.sales import SalesAdapter
+
+async def main():
+    # Create a Mind with an adapter
+    mind = Mind(adapter=SalesAdapter())
+
+    # Chat - state accumulates automatically
+    response = await mind.chat("user_1", "Working on the Acme deal")
+    print(response)
+
+    # Inspect what the Mind knows
+    state = await mind.get_state("user_1")
+    print(state["user_mind"]["patterns"])
+
+    # Human-readable summary
+    print(await mind.explain_state("user_1"))
+
+asyncio.run(main())
+```
+
+## Try the CLI Demo
+
+```bash
+sxth-mind demo --adapter sales
+```
+
+This starts an interactive session where you can chat and see state accumulate.
+
+## Run the HTTP API
+
+```bash
+sxth-mind serve --adapter sales --port 8000
+```
+
+Then make requests:
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_1", "message": "Working on a new deal"}'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book" href="/concepts/mind">
+    Understand Mind, UserMind, and ProjectMind
+  </Card>
+  <Card title="Build an Adapter" icon="hammer" href="/guides/building-adapters">
+    Create adapters for your domain
+  </Card>
+  <Card title="Storage Options" icon="database" href="/guides/storage">
+    Configure SQLite, PostgreSQL, or custom storage
+  </Card>
+  <Card title="Example Adapters" icon="code" href="/examples/sales">
+    Explore Sales, Habits, and Learning adapters
+  </Card>
+</CardGroup>

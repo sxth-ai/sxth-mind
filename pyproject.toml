@@ -54,7 +54,7 @@ sxth-mind = "sxth_mind.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/sxth-ai/sxth-mind"
-Documentation = "https://github.com/sxth-ai/sxth-mind#readme"
+Documentation = "https://docs.sxth.ai"
 Repository = "https://github.com/sxth-ai/sxth-mind"
 Issues = "https://github.com/sxth-ai/sxth-mind/issues"
 

@@ -1,0 +1,171 @@
+---
+title: "Providers"
+description: "Configure LLM providers for the Mind"
+---
+
+# Providers
+
+sxth-mind supports pluggable LLM providers. Bring your own or use the built-in OpenAI provider.
+
+## OpenAI (Built-in)
+
+```bash
+pip install sxth-mind[openai]
+```
+
+```python
+from sxth_mind import Mind
+from sxth_mind.providers.openai import OpenAIProvider
+from examples.sales import SalesAdapter
+
+mind = Mind(
+    adapter=SalesAdapter(),
+    provider=OpenAIProvider(
+        api_key="sk-...",           # Or set OPENAI_API_KEY env var
+        default_model="gpt-4o-mini",
+    ),
+)
+```
+
+### Configuration Options
+
+```python
+OpenAIProvider(
+    api_key="sk-...",               # API key (or use env var)
+    organization="org-...",          # Optional org ID
+    base_url="https://...",          # Custom endpoint (Azure, proxies)
+    default_model="gpt-4o-mini",     # Default model
+)
+```
+
+## Custom Provider
+
+Implement the `BaseLLMProvider` interface for any LLM:
+
+```python
+from collections.abc import AsyncIterator
+from sxth_mind.providers.base import BaseLLMProvider, LLMResponse, Message
+
+class MyProvider(BaseLLMProvider):
+    @property
+    def default_model(self) -> str:
+        return "my-model"
+
+    async def chat(
+        self,
+        messages: list[Message],
+        model: str | None = None,
+        tools: list[dict] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        """Send messages and get a response."""
+        # Your implementation here
+        # Call your LLM API
+
+        return LLMResponse(
+            content="Response text",
+            tool_calls=[],  # If using tools
+            usage={"prompt_tokens": 0, "completion_tokens": 0},
+            model=model or self.default_model,
+            finish_reason="stop",
+        )
+
+    async def chat_stream(
+        self,
+        messages: list[Message],
+        model: str | None = None,
+        tools: list[dict] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[str]:
+        """Stream a response token by token."""
+        # Your streaming implementation
+        response = "Your streamed response"
+        for word in response.split():
+            yield word + " "
+```
+
+### Example: Anthropic Provider
+
+```python
+from anthropic import AsyncAnthropic
+from sxth_mind.providers.base import BaseLLMProvider, LLMResponse, Message
+
+class AnthropicProvider(BaseLLMProvider):
+    def __init__(self, api_key: str | None = None):
+        self.client = AsyncAnthropic(api_key=api_key)
+
+    @property
+    def default_model(self) -> str:
+        return "claude-3-5-sonnet-20241022"
+
+    async def chat(self, messages, model=None, **kwargs) -> LLMResponse:
+        # Convert messages format
+        system = next((m.content for m in messages if m.role == "system"), "")
+        chat_messages = [
+            {"role": m.role, "content": m.content}
+            for m in messages if m.role != "system"
+        ]
+
+        response = await self.client.messages.create(
+            model=model or self.default_model,
+            system=system,
+            messages=chat_messages,
+            max_tokens=kwargs.get("max_tokens", 1024),
+        )
+
+        return LLMResponse(
+            content=response.content[0].text,
+            model=response.model,
+            usage={
+                "prompt_tokens": response.usage.input_tokens,
+                "completion_tokens": response.usage.output_tokens,
+            },
+        )
+
+    async def chat_stream(self, messages, **kwargs):
+        # Streaming implementation
+        ...
+```
+
+## Message Format
+
+Messages use a simple structure:
+
+```python
+class Message:
+    role: str       # "system", "user", "assistant", "tool"
+    content: str    # Message content
+    name: str | None          # Tool name (if role="tool")
+    tool_call_id: str | None  # Tool call ID (if role="tool")
+```
+
+The `format_messages()` helper converts to provider format:
+
+```python
+def format_messages(self, messages: list[Message]) -> list[dict]:
+    return [{"role": m.role, "content": m.content} for m in messages]
+```
+
+## Response Format
+
+```python
+class LLMResponse:
+    content: str                    # Response text
+    tool_calls: list[ToolCall]      # Tool calls (if using tools)
+    usage: dict[str, int]           # Token usage stats
+    model: str | None               # Model used
+    finish_reason: str | None       # Why generation stopped
+```
+
+## Default Provider
+
+If no provider is specified, sxth-mind tries to load OpenAI:
+
+```python
+# This works if openai is installed and OPENAI_API_KEY is set
+mind = Mind(adapter=SalesAdapter())
+```
+
+If OpenAI isn't available, you'll get an error prompting you to install a provider or pass one explicitly.
