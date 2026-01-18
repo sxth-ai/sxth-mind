@@ -53,10 +53,10 @@ all = [
 sxth-mind = "sxth_mind.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/toywobot/sxth-mind"
-Documentation = "https://github.com/toywobot/sxth-mind#readme"
-Repository = "https://github.com/toywobot/sxth-mind"
-Issues = "https://github.com/toywobot/sxth-mind/issues"
+Homepage = "https://github.com/sxth-ai/sxth-mind"
+Documentation = "https://github.com/sxth-ai/sxth-mind#readme"
+Repository = "https://github.com/sxth-ai/sxth-mind"
+Issues = "https://github.com/sxth-ai/sxth-mind/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sxth_mind"]

@@ -333,4 +333,4 @@ mind = Mind(adapter=..., storage=SQLiteStorage("minds.db"))
 
 ---
 
-Questions? Issues? [Open a GitHub issue](https://github.com/toywobot/sxth-mind/issues).
+Questions? Issues? [Open a GitHub issue](https://github.com/sxth-ai/sxth-mind/issues).

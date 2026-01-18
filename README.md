@@ -14,7 +14,13 @@
 
 sxth-mind is a **cognitive state layer** for AI applications. It accumulates understanding about users over time—detecting patterns, tracking journey stages, and adapting responses based on derived insights.
 
-Unlike chat history retrieval, sxth-mind maintains **evolved state**:
+Use it to personalize **any** LLM-powered experience:
+
+- **Chat assistants** that remember user patterns across sessions
+- **Personalized dashboards** that adapt to user behavior
+- **Content recommendations** informed by journey stage
+- **Proactive nudges** triggered by inactivity or momentum drops
+- **Any AI feature** where understanding should evolve over time
 
 ```python
 from sxth_mind import Mind
@@ -22,16 +28,15 @@ from examples.sales import SalesAdapter
 
 mind = Mind(adapter=SalesAdapter())
 
-# Interaction 1
-await mind.chat("user_1", "Following up with the enterprise lead")
-# → "What's your approach for this follow-up?"
+# Get user state to personalize any LLM call
+state = await mind.get_state("user_1")
+# → Use state["user_mind"]["patterns"] to customize prompts, UI, recommendations
 
-# Interaction 10 (weeks later)
-await mind.chat("user_1", "Following up with a new lead")
-# → "Based on your pattern, enterprise leads need 4+ touches. Plan a multi-channel sequence upfront?"
+# Or use the built-in chat with automatic state management
+await mind.chat("user_1", "Following up with the enterprise lead")
 ```
 
-The Mind learns that this user's enterprise deals require persistence—and proactively applies that insight.
+Unlike chat history retrieval, sxth-mind maintains **derived understanding** that evolves with each interaction.
 
 ---
 

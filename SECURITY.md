@@ -62,7 +62,7 @@ All data is stored in whatever storage backend you configure. You are responsibl
 
 If you discover a security vulnerability, please report it via:
 
-1. **GitHub Security Advisories**: [Report a vulnerability](https://github.com/toywobot/sxth-mind/security/advisories/new)
+1. **GitHub Security Advisories**: [Report a vulnerability](https://github.com/sxth-ai/sxth-mind/security/advisories/new)
 2. **Email**: hello@sxth.ai
 
 Please do not open public issues for security vulnerabilities.

@@ -22,7 +22,7 @@ Examples:
   sxth-mind serve --adapter habits  Start with Habits adapter
   sxth-mind info                    Show package information
 
-Learn more at https://github.com/toywobot/sxth-mind
+Learn more at https://github.com/sxth-ai/sxth-mind
 """,
     )
 
@@ -110,7 +110,7 @@ Quick Start:
   mind = Mind(adapter=SalesAdapter())
   response = await mind.chat("user_1", "Hello!")
 
-Learn more: https://github.com/toywobot/sxth-mind
+Learn more: https://github.com/sxth-ai/sxth-mind
 """)
 
 

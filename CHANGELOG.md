@@ -61,5 +61,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Getting started guide
   - Adapter development guide
 
-[Unreleased]: https://github.com/toywobot/sxth-mind/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/toywobot/sxth-mind/releases/tag/v0.1.0
+[Unreleased]: https://github.com/sxth-ai/sxth-mind/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/sxth-ai/sxth-mind/releases/tag/v0.1.0
