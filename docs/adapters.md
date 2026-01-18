@@ -1,0 +1,351 @@
+# Building Adapters
+
+This guide explains how to build your own adapter for sxth-mind.
+
+## What is an Adapter?
+
+An adapter defines **domain-specific behavior** for your application. It tells the Mind:
+
+- **What identity types exist** (e.g., sales rep styles, learning types)
+- **What journey stages look like** (e.g., prospecting → closing)
+- **How to detect the current stage** from state
+- **What nudges to send** when patterns emerge
+- **How to build system prompts** with domain context
+
+The Mind handles everything else: state management, persistence, LLM calls.
+
+## Minimal Adapter
+
+Here's the simplest possible adapter:
+
+```python
+from sxth_mind.adapters.base import BaseAdapter
+from sxth_mind.schemas import ProjectMind
+
+class MinimalAdapter(BaseAdapter):
+    @property
+    def name(self) -> str:
+        return "minimal"
+
+    def get_identity_types(self) -> list[dict]:
+        return [
+            {"key": "default", "label": "Default", "traits": []},
+        ]
+
+    def get_journey_stages(self) -> list[dict]:
+        return [
+            {"key": "active", "label": "Active", "tone": "helpful", "guidance": "Be helpful."},
+        ]
+
+    def detect_journey_stage(self, project_mind: ProjectMind) -> str:
+        return "active"
+
+    def get_nudge_templates(self) -> dict:
+        return {}
+
+    def get_insight_types(self) -> list[dict]:
+        return []
+```
+
+That's it. This adapter works, though it doesn't do much domain-specific customization.
+
+## Full Adapter Example
+
+Here's a more complete example for a customer support domain:
+
+```python
+from typing import Any
+from sxth_mind.adapters.base import BaseAdapter
+from sxth_mind.schemas import UserMind, ProjectMind
+
+
+class SupportAdapter(BaseAdapter):
+    """Customer support adapter."""
+
+    @property
+    def name(self) -> str:
+        return "support"
+
+    @property
+    def display_name(self) -> str:
+        return "Support Assistant"
+
+    # ═══════════════════════════════════════════════════════════════
+    # Identity Model
+    # ═══════════════════════════════════════════════════════════════
+
+    def get_identity_types(self) -> list[dict[str, Any]]:
+        """Customer types based on behavior patterns."""
+        return [
+            {
+                "key": "power_user",
+                "label": "Power User",
+                "traits": ["technical", "self-sufficient", "detailed questions"],
+            },
+            {
+                "key": "new_user",
+                "label": "New User",
+                "traits": ["learning", "needs guidance", "basic questions"],
+            },
+            {
+                "key": "frustrated",
+                "label": "Frustrated User",
+                "traits": ["urgent", "emotional", "needs empathy"],
+            },
+        ]
+
+    # ═══════════════════════════════════════════════════════════════
+    # Journey Model
+    # ═══════════════════════════════════════════════════════════════
+
+    def get_journey_stages(self) -> list[dict[str, Any]]:
+        """Support ticket lifecycle stages."""
+        return [
+            {
+                "key": "new_issue",
+                "label": "New Issue",
+                "tone": "welcoming",
+                "guidance": "Gather information about the problem. Be patient.",
+            },
+            {
+                "key": "investigating",
+                "label": "Investigating",
+                "tone": "thorough",
+                "guidance": "Ask clarifying questions. Dig into details.",
+            },
+            {
+                "key": "resolving",
+                "label": "Resolving",
+                "tone": "solution-focused",
+                "guidance": "Provide clear steps. Confirm understanding.",
+            },
+            {
+                "key": "follow_up",
+                "label": "Follow Up",
+                "tone": "caring",
+                "guidance": "Check if the solution worked. Offer more help.",
+            },
+        ]
+
+    def detect_journey_stage(self, project_mind: ProjectMind) -> str:
+        """Detect stage based on ticket progress."""
+        # Check explicit stage
+        if project_mind.get_context_field("stage"):
+            return project_mind.get_context_field("stage")
+
+        # Infer from interactions
+        interactions = project_mind.interaction_count
+
+        if interactions < 2:
+            return "new_issue"
+        elif interactions < 5:
+            return "investigating"
+        elif project_mind.get_progress_field("solution_provided"):
+            return "follow_up"
+        else:
+            return "resolving"
+
+    # ═══════════════════════════════════════════════════════════════
+    # Proactive Intelligence
+    # ═══════════════════════════════════════════════════════════════
+
+    def get_nudge_templates(self) -> dict[str, dict[str, Any]]:
+        return {
+            "check_resolution": {
+                "title": "Did that help?",
+                "template": "Just checking in - did the solution work for you?",
+                "priority": 6,
+            },
+            "escalation_needed": {
+                "title": "Escalation may help",
+                "template": "This seems complex. Want me to escalate to a specialist?",
+                "priority": 8,
+            },
+        }
+
+    def get_insight_types(self) -> list[dict[str, Any]]:
+        return [
+            {"key": "recurring_issue", "label": "Recurring Issue", "severity": "warning"},
+            {"key": "frustration_detected", "label": "Frustration Detected", "severity": "warning"},
+        ]
+
+    # ═══════════════════════════════════════════════════════════════
+    # Custom System Prompt
+    # ═══════════════════════════════════════════════════════════════
+
+    def get_system_prompt(self, user_mind: UserMind, project_mind: ProjectMind) -> str:
+        stage = project_mind.journey_stage or self.detect_journey_stage(project_mind)
+        stage_info = next(
+            (s for s in self.get_journey_stages() if s["key"] == stage),
+            self.get_journey_stages()[0]
+        )
+
+        return f"""You are a helpful customer support assistant.
+
+## Current Stage: {stage_info['label']}
+{stage_info['guidance']}
+
+## User Context
+- Previous interactions: {user_mind.total_interactions}
+- Issue interactions: {project_mind.interaction_count}
+
+## Guidelines
+- Be empathetic and patient
+- Ask clarifying questions when needed
+- Provide clear, step-by-step solutions
+- Confirm the user understood before closing
+"""
+```
+
+## Key Methods to Override
+
+### Required
+
+| Method | Purpose |
+|--------|---------|
+| `name` | Unique identifier for your adapter |
+| `get_identity_types()` | Define user archetypes |
+| `get_journey_stages()` | Define progression stages |
+| `detect_journey_stage()` | Logic to determine current stage |
+| `get_nudge_templates()` | Proactive message templates |
+| `get_insight_types()` | Types of insights to surface |
+
+### Optional (but recommended)
+
+| Method | Purpose |
+|--------|---------|
+| `display_name` | Human-readable name |
+| `get_system_prompt()` | Custom AI instructions |
+| `update_after_interaction()` | Custom state updates |
+| `get_context_for_prompt()` | Additional prompt context |
+
+## Journey Stages
+
+Stages define the user's progression. Each stage should have:
+
+```python
+{
+    "key": "stage_key",           # Unique identifier
+    "label": "Human Label",       # Display name
+    "tone": "encouraging",        # AI tone for this stage
+    "guidance": "Be helpful...",  # Instructions for the AI
+}
+```
+
+### Stage Detection
+
+The `detect_journey_stage()` method determines which stage a user is in. You can use:
+
+- **Explicit context**: Check `project_mind.get_context_field("stage")`
+- **Interaction count**: `project_mind.interaction_count`
+- **Momentum**: `project_mind.momentum_score`
+- **Days since activity**: `project_mind.days_since_activity`
+- **Progress data**: `project_mind.get_progress_field("key")`
+- **User patterns**: `user_mind.patterns`
+
+## Identity Types
+
+Identity types help personalize responses. Define traits that matter for your domain:
+
+```python
+def get_identity_types(self) -> list[dict]:
+    return [
+        {
+            "key": "visual_learner",
+            "label": "Visual Learner",
+            "traits": ["prefers diagrams", "examples help", "step-by-step"],
+        },
+        # ...
+    ]
+```
+
+The Mind stores the user's identity type in `user_mind.identity_type` and additional data in `user_mind.identity_data`.
+
+## Pattern Detection
+
+Override `update_after_interaction()` to detect domain-specific patterns:
+
+```python
+def update_after_interaction(
+    self,
+    user_mind: UserMind,
+    project_mind: ProjectMind,
+    message: str,
+    response: str,
+) -> None:
+    # Call base implementation
+    super().update_after_interaction(user_mind, project_mind, message, response)
+
+    # Add custom pattern detection
+    if "frustrated" in message.lower() or "angry" in message.lower():
+        frustration_count = user_mind.patterns.get("frustration_mentions", 0)
+        user_mind.patterns["frustration_mentions"] = frustration_count + 1
+```
+
+## Nudge Templates
+
+Nudges are proactive messages. Define templates with placeholders:
+
+```python
+def get_nudge_templates(self) -> dict:
+    return {
+        "inactivity": {
+            "title": "We miss you!",
+            "template": "It's been {days} days. Ready to continue?",
+            "priority": 5,  # 1-10, higher = more important
+        },
+    }
+```
+
+## Testing Your Adapter
+
+```python
+import pytest
+from your_adapter import YourAdapter
+from sxth_mind.schemas import UserMind, ProjectMind
+
+def test_journey_stages():
+    adapter = YourAdapter()
+    stages = adapter.get_journey_stages()
+
+    assert len(stages) > 0
+    assert all("key" in s for s in stages)
+    assert all("tone" in s for s in stages)
+
+def test_detect_stage_new_user():
+    adapter = YourAdapter()
+    project_mind = ProjectMind(
+        user_mind_id="um_1",
+        project_id="p_1",
+        interaction_count=0,
+    )
+
+    stage = adapter.detect_journey_stage(project_mind)
+    assert stage == "new_issue"  # or whatever your first stage is
+```
+
+## Using Your Adapter
+
+```python
+from sxth_mind import Mind
+from your_adapter import YourAdapter
+
+mind = Mind(adapter=YourAdapter())
+
+# Chat
+response = await mind.chat("user_1", "Hello!")
+
+# The Mind handles:
+# - Creating/loading UserMind and ProjectMind
+# - Building the system prompt using your adapter
+# - Calling the LLM
+# - Updating state after the interaction
+```
+
+## Best Practices
+
+1. **Start simple** - Begin with basic stages, add complexity as needed
+2. **Test stage detection** - Make sure transitions happen when expected
+3. **Be specific in guidance** - Tell the AI exactly how to behave at each stage
+4. **Track meaningful patterns** - Only detect patterns you'll actually use
+5. **Keep nudges helpful** - Don't spam; nudge when there's real value

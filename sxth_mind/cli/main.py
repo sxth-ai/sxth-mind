@@ -16,9 +16,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  sxth-mind demo              Run interactive demo with Sales adapter
+  sxth-mind demo                    Run interactive demo with Sales adapter
   sxth-mind demo --adapter habits   Run with Habits adapter
-  sxth-mind info              Show package information
+  sxth-mind serve                   Start HTTP server
+  sxth-mind serve --adapter habits  Start with Habits adapter
+  sxth-mind info                    Show package information
 
 Learn more at https://github.com/toywobot/sxth-mind
 """,
@@ -30,7 +32,7 @@ Learn more at https://github.com/toywobot/sxth-mind
     demo_parser = subparsers.add_parser("demo", help="Run interactive demo")
     demo_parser.add_argument(
         "--adapter",
-        choices=["sales", "habits", "learning"],
+        choices=["sales", "habits"],
         default="sales",
         help="Adapter to use (default: sales)",
     )
@@ -40,6 +42,42 @@ Learn more at https://github.com/toywobot/sxth-mind
         help="User ID for the demo (default: demo_user)",
     )
 
+    # Serve command
+    serve_parser = subparsers.add_parser("serve", help="Start HTTP server")
+    serve_parser.add_argument(
+        "--adapter",
+        choices=["sales", "habits"],
+        default="sales",
+        help="Adapter to use (default: sales)",
+    )
+    serve_parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind to (default: 0.0.0.0)",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind to (default: 8000)",
+    )
+    serve_parser.add_argument(
+        "--storage",
+        choices=["memory", "sqlite"],
+        default="memory",
+        help="Storage backend (default: memory)",
+    )
+    serve_parser.add_argument(
+        "--db-path",
+        default="sxth_mind.db",
+        help="SQLite database path (default: sxth_mind.db)",
+    )
+    serve_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development",
+    )
+
     # Info command
     subparsers.add_parser("info", help="Show package information")
 
@@ -47,6 +85,8 @@ Learn more at https://github.com/toywobot/sxth-mind
 
     if args.command == "demo":
         asyncio.run(run_demo(args.adapter, args.user_id))
+    elif args.command == "serve":
+        run_server(args)
     elif args.command == "info":
         show_info()
     else:
@@ -74,6 +114,72 @@ Learn more: https://github.com/toywobot/sxth-mind
 """)
 
 
+def get_adapter(adapter_name: str):
+    """Load an adapter by name."""
+    if adapter_name == "sales":
+        from examples.sales import SalesAdapter
+        return SalesAdapter()
+    elif adapter_name == "habits":
+        from examples.habits import HabitCoachAdapter
+        return HabitCoachAdapter()
+    else:
+        raise ValueError(f"Unknown adapter: {adapter_name}")
+
+
+def get_storage(storage_name: str, db_path: str = "sxth_mind.db"):
+    """Load a storage backend by name."""
+    if storage_name == "memory":
+        from sxth_mind.storage import MemoryStorage
+        return MemoryStorage()
+    elif storage_name == "sqlite":
+        from sxth_mind.storage import SQLiteStorage
+        return SQLiteStorage(db_path)
+    else:
+        raise ValueError(f"Unknown storage: {storage_name}")
+
+
+def run_server(args):
+    """Run the HTTP server."""
+    try:
+        import uvicorn
+    except ImportError:
+        print("uvicorn not installed. Install with:")
+        print("  pip install sxth-mind[api]")
+        sys.exit(1)
+
+    # Create a module that uvicorn can import
+    adapter = get_adapter(args.adapter)
+    storage = get_storage(args.storage, args.db_path)
+
+    from sxth_mind.api import create_app
+    app = create_app(adapter=adapter, storage=storage)
+
+    print(f"""
+╔══════════════════════════════════════════════════════════════╗
+║                     sxth-mind Server                          ║
+║                                                               ║
+║  Adapter: {adapter.display_name:<20}                         ║
+║  Storage: {args.storage:<20}                         ║
+║  URL: http://{args.host}:{args.port:<24}             ║
+║                                                               ║
+║  Endpoints:                                                   ║
+║    POST /chat          Send a message                         ║
+║    POST /chat/stream   Stream a response                      ║
+║    GET  /state/{{id}}    Get user state                         ║
+║    GET  /explain/{{id}}  Explain state                          ║
+║    GET  /nudges/{{id}}   Get pending nudges                     ║
+║    GET  /health        Health check                           ║
+╚══════════════════════════════════════════════════════════════╝
+""")
+
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
+
+
 async def run_demo(adapter_name: str, user_id: str):
     """Run interactive demo."""
     try:
@@ -82,17 +188,11 @@ async def run_demo(adapter_name: str, user_id: str):
         print(f"Error importing sxth_mind: {e}")
         sys.exit(1)
 
-    # Load adapter
-    if adapter_name == "sales":
-        try:
-            from examples.sales import SalesAdapter
-            adapter = SalesAdapter()
-        except ImportError:
-            print("Sales adapter not found. Using base demo.")
-            return
-    else:
-        print(f"Adapter '{adapter_name}' not yet implemented.")
-        print("Available: sales")
+    try:
+        adapter = get_adapter(adapter_name)
+    except ValueError as e:
+        print(f"Error: {e}")
+        print("Available adapters: sales, habits")
         return
 
     print(f"""
