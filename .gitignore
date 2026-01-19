@@ -88,3 +88,7 @@ Thumbs.db
 *.db
 *.sqlite
 .env.local
+
+# Sublimne text
+*.sublime-project
+*.sublime-workspace
