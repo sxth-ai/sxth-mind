@@ -1,0 +1,71 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "theme": "mint",
+  "name": "sxth-mind",
+  "logo": {
+    "dark": "/logo/dark.jpg",
+    "light": "/logo/light.png"
+  },
+  "favicon": "/favicon.jpg",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/sxth-ai/sxth-mind"
+      },
+      {
+        "label": "PyPI",
+        "href": "https://pypi.org/project/sxth-mind"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get Started",
+      "href": "/getting-started"
+    }
+  },
+  "navigation": {
+    "languages": [
+      {
+        "language": "en",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": ["introduction", "getting-started", "quickstart"]
+              },
+              {
+                "group": "Core Concepts",
+                "pages": ["concepts/mind", "concepts/state", "concepts/adapters"]
+              },
+              {
+                "group": "Guides",
+                "pages": ["guides/building-adapters", "guides/storage", "guides/providers", "guides/nudges"]
+              },
+              {
+                "group": "Examples",
+                "pages": ["examples/sales", "examples/habits", "examples/learning"]
+              },
+              {
+                "group": "API Reference",
+                "pages": ["api/http-api", "api/python-api"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/sxth-ai/sxth-mind"
+    }
+  }
+}
