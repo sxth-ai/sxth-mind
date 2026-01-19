@@ -34,28 +34,40 @@
       "url": "https://pypi.org/project/sxth-mind"
     }
   ],
-  "navigation": [
-    {
-      "group": "Getting Started",
-      "pages": ["introduction", "getting-started", "quickstart"]
-    },
-    {
-      "group": "Core Concepts",
-      "pages": ["concepts/mind", "concepts/state", "concepts/adapters"]
-    },
-    {
-      "group": "Guides",
-      "pages": ["guides/building-adapters", "guides/storage", "guides/providers", "guides/nudges"]
-    },
-    {
-      "group": "Examples",
-      "pages": ["examples/sales", "examples/habits", "examples/learning"]
-    },
-    {
-      "group": "API Reference",
-      "pages": ["api/http-api", "api/python-api"]
-    }
-  ],
+  "navigation": {
+    "languages": [
+      {
+        "language": "en",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": ["introduction", "getting-started", "quickstart"]
+              },
+              {
+                "group": "Core Concepts",
+                "pages": ["concepts/mind", "concepts/state", "concepts/adapters"]
+              },
+              {
+                "group": "Guides",
+                "pages": ["guides/building-adapters", "guides/storage", "guides/providers", "guides/nudges"]
+              },
+              {
+                "group": "Examples",
+                "pages": ["examples/sales", "examples/habits", "examples/learning"]
+              },
+              {
+                "group": "API Reference",
+                "pages": ["api/http-api", "api/python-api"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "footerSocials": {
     "github": "https://github.com/sxth-ai/sxth-mind"
   }
