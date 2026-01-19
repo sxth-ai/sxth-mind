@@ -1,0 +1,104 @@
+---
+title: 'Contributing'
+description: 'How to contribute to sxth-mind'
+---
+
+## Overview
+
+We welcome contributions from the community! Whether you're fixing bugs, adding features, improving docs, or sharing ideas.
+
+## Quick Start
+
+<Steps>
+  <Step title="Fork & Clone">
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/sxth-mind.git
+    cd sxth-mind
+    ```
+  </Step>
+  <Step title="Install Dependencies">
+    ```bash
+    pip install -e ".[dev,openai,api,sqlite]"
+    ```
+  </Step>
+  <Step title="Run Tests">
+    ```bash
+    pytest
+    ```
+  </Step>
+</Steps>
+
+## Ways to Contribute
+
+<CardGroup cols={2}>
+  <Card title="New Adapters" icon="puzzle-piece">
+    Build domain-specific adapters (fitness, support, education)
+  </Card>
+  <Card title="Storage Backends" icon="database">
+    Add Redis, PostgreSQL, MongoDB support
+  </Card>
+  <Card title="LLM Providers" icon="brain">
+    Integrate Anthropic, Gemini, local models
+  </Card>
+  <Card title="Documentation" icon="book">
+    Improve docs, add examples, fix typos
+  </Card>
+</CardGroup>
+
+## Development Workflow
+
+### Code Style
+
+We use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting:
+
+```bash
+ruff check .        # Lint
+ruff check . --fix  # Auto-fix issues
+```
+
+### Type Checking
+
+We use strict mypy:
+
+```bash
+mypy sxth_mind
+```
+
+### Running Tests
+
+```bash
+pytest                    # All tests
+pytest tests/test_mind.py # Specific file
+pytest -v                 # Verbose output
+```
+
+## Pull Request Process
+
+1. **Create a branch** for your changes:
+   ```bash
+   git checkout -b feature/my-new-feature
+   ```
+
+2. **Make your changes** with clear, focused commits
+
+3. **Add tests** for new functionality
+
+4. **Run the full test suite**:
+   ```bash
+   pytest && ruff check . && mypy sxth_mind
+   ```
+
+5. **Open a PR** with:
+   - Clear description of what changed
+   - Link to any related issues
+   - Screenshots/examples if applicable
+
+## Code of Conduct
+
+Be kind. Be respectful. Assume good intent.
+
+We're building something useful together. Constructive feedback is welcome; personal attacks are not.
+
+<Card title="Full Contributing Guide" icon="github" href="https://github.com/sxth-ai/sxth-mind/blob/main/CONTRIBUTING.md">
+  See the complete contributing guidelines on GitHub
+</Card>
