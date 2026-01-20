@@ -235,7 +235,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Links
 
-- [Documentation](docs/getting-started.md)
+- [Documentation](https://docs.sxth.ai)
 - [PyPI](https://pypi.org/project/sxth-mind)
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE) (MIT)
