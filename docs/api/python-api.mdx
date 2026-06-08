@@ -205,22 +205,32 @@ class ProjectMind:
     context_data: dict
     progress_data: dict
 
+    # Derived conversation views (owned belief state, not raw bytes)
+    conversation_summary: str | None
+    topics: list[str]
+
     # Timestamps
     created_at: datetime
     updated_at: datetime
 ```
 
-### ConversationMemory
+### Event
+
+Raw evidence read from an [`EvidenceSource`](#evidencesource) — the rented
+substrate. Not part of the belief state.
 
 ```python
-from sxth_mind.schemas import ConversationMemory
+from sxth_mind.schemas import Event
 
-class ConversationMemory:
+class Event:
     id: str
-    project_mind_id: str
-    messages: list[Message]
-    summary: str | None
-    key_topics: list[str]
+    user_id: str
+    project_id: str | None
+    kind: str          # "message" | "action" | "signal" | ...
+    role: str | None   # for messages: user | assistant | system | tool
+    content: str
+    timestamp: datetime
+    metadata: dict
 ```
 
 ### Nudge
@@ -265,14 +275,16 @@ class MyStorage(BaseStorage):
     async def get_project_minds_for_user(self, user_id: str) -> list[ProjectMind]: ...
     async def delete_project_mind(self, user_id: str, project_id: str) -> None: ...
 
-    # Memory
-    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None: ...
-    async def save_memory(self, memory: ConversationMemory) -> None: ...
-
     # Nudges
     async def get_pending_nudges(self, user_id: str) -> list[Nudge]: ...
     async def save_nudge(self, nudge: Nudge) -> None: ...
+    async def update_nudge_status(self, nudge_id: str, status: str) -> bool: ...
 ```
+
+<Note>
+`BaseStorage` persists the belief state only. Raw history is handled by the
+[`EvidenceSource`](#evidencesource), not storage.
+</Note>
 
 ### MemoryStorage
 
@@ -289,6 +301,42 @@ from sxth_mind.storage import SQLiteStorage
 
 storage = SQLiteStorage("mind.db")
 await storage.initialize()
+```
+
+---
+
+## Evidence
+
+The rented raw substrate — messages, actions, signals — that sxth-mind reads but
+does not own. Pass one via `Mind(evidence=...)`.
+
+### EvidenceSource
+
+```python
+from sxth_mind import EvidenceSource
+from sxth_mind.schemas import Event
+
+class MyEvidenceSource(EvidenceSource):
+    async def recent(
+        self, user_id: str, project_id: str | None = None, limit: int = 10
+    ) -> list[Event]: ...
+
+    async def search(
+        self, user_id: str, query: str, project_id: str | None = None, limit: int = 10
+    ) -> list[Event]: ...
+
+    # Optional. Default is a no-op — override only if you want sxth-mind to
+    # capture raw turns itself (the app often already logs its own events).
+    async def append(self, event: Event) -> None: ...
+```
+
+Back it with your own database, a memory vendor (Mem0, Zep), or the bundled
+`LocalEvidenceSource`:
+
+```python
+from sxth_mind import Mind, LocalEvidenceSource
+
+mind = Mind(adapter=SalesAdapter(), evidence=LocalEvidenceSource())  # default
 ```
 
 ---

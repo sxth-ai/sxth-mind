@@ -47,7 +47,7 @@
               },
               {
                 "group": "Guides",
-                "pages": ["guides/building-adapters", "guides/storage", "guides/providers", "guides/nudges"]
+                "pages": ["guides/building-adapters", "guides/storage", "guides/evidence", "guides/providers", "guides/nudges"]
               },
               {
                 "group": "Examples",
