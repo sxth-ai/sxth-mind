@@ -11,7 +11,7 @@ The Learning adapter helps users develop skills with progress tracking and stuck
 
 ```python
 from sxth_mind import Mind
-from examples.learning import LearningAdapter
+from sxth_mind.adapters import LearningAdapter
 
 mind = Mind(adapter=LearningAdapter())
 ```
@@ -66,7 +66,7 @@ The Learning adapter tracks:
 ```python
 import asyncio
 from sxth_mind import Mind
-from examples.learning import LearningAdapter
+from sxth_mind.adapters import LearningAdapter
 
 async def main():
     mind = Mind(adapter=LearningAdapter())

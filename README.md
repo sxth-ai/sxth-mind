@@ -24,7 +24,7 @@ Use it to personalize **any** LLM-powered experience:
 
 ```python
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 mind = Mind(adapter=SalesAdapter())
 
@@ -66,7 +66,7 @@ pip install sxth-mind[all]         # Everything
 ```python
 import asyncio
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 async def main():
     mind = Mind(adapter=SalesAdapter())
@@ -139,21 +139,21 @@ asyncio.run(main())
 
 ### Sales
 ```python
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 mind = Mind(adapter=SalesAdapter())
 ```
 **Tracks:** outreach patterns, deal stages, follow-up frequency
 
 ### Habits
 ```python
-from examples.habits import HabitCoachAdapter
+from sxth_mind.adapters import HabitCoachAdapter
 mind = Mind(adapter=HabitCoachAdapter())
 ```
 **Tracks:** streaks, blockers, recovery patterns
 
 ### Learning
 ```python
-from examples.learning import LearningAdapter
+from sxth_mind.adapters import LearningAdapter
 mind = Mind(adapter=LearningAdapter())
 ```
 **Tracks:** progress, stuck indicators, learning style

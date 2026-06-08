@@ -5,6 +5,7 @@ SQLite-based storage implementation. Data persists across restarts.
 """
 
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
@@ -26,7 +27,7 @@ class SQLiteStorage(BaseStorage):
         mind = Mind(adapter=MyAdapter(), storage=storage)
     """
 
-    def __init__(self, db_path: str = "sxth_mind.db"):
+    def __init__(self, db_path: str = "sxth_mind.db") -> None:
         """
         Initialize SQLite storage.
 
@@ -34,7 +35,9 @@ class SQLiteStorage(BaseStorage):
             db_path: Path to SQLite database file
         """
         self.db_path = Path(db_path)
-        self._conn = None
+        # aiosqlite is an optional dependency imported lazily in initialize(),
+        # so the connection is typed Any rather than importing aiosqlite here.
+        self._conn: Any = None
 
     async def initialize(self) -> None:
         """Create tables if they don't exist."""
@@ -307,3 +310,26 @@ class SQLiteStorage(BaseStorage):
                 updated_at = excluded.updated_at
         """, (nudge.id, user_id, nudge.project_mind_id, data, nudge.status, now, now))
         await self._conn.commit()
+
+    async def update_nudge_status(self, nudge_id: str, status: str) -> bool:
+        self._ensure_connected()
+
+        # Load, mutate via the schema (so timestamps stay consistent), re-save.
+        async with self._conn.execute(
+            "SELECT data FROM nudges WHERE id = ?", (nudge_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return False
+            nudge = Nudge.model_validate_json(row[0])
+
+        nudge.set_status(status)
+        data = nudge.model_dump_json()
+        now = nudge.updated_at.isoformat()
+
+        await self._conn.execute(
+            "UPDATE nudges SET data = ?, status = ?, updated_at = ? WHERE id = ?",
+            (data, nudge.status, now, nudge_id),
+        )
+        await self._conn.commit()
+        return True

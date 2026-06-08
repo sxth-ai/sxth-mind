@@ -15,7 +15,7 @@ This adapter models a user building and maintaining habits. It demonstrates:
 
 ```python
 from sxth_mind import Mind
-from examples.habits import HabitCoachAdapter
+from sxth_mind.adapters import HabitCoachAdapter
 
 mind = Mind(adapter=HabitCoachAdapter())
 

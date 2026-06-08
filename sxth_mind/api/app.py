@@ -7,7 +7,7 @@ Creates and configures the sxth-mind HTTP API.
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from sxth_mind.adapters.base import BaseAdapter
@@ -16,29 +16,29 @@ from sxth_mind.providers.base import BaseLLMProvider
 from sxth_mind.storage.base import BaseStorage
 from sxth_mind.storage.memory import MemoryStorage
 
-# Global mind instance (set during app creation)
-_mind: Mind | None = None
 
-
-def get_mind() -> Mind:
-    """Get the global Mind instance."""
-    if _mind is None:
-        raise RuntimeError("Mind not initialized. Call create_app() first.")
-    return _mind
+def get_mind(request: Request) -> Mind:
+    """FastAPI dependency: return the Mind bound to this app instance."""
+    mind: Mind | None = getattr(request.app.state, "mind", None)
+    if mind is None:  # pragma: no cover - defensive, create_app always sets it
+        raise RuntimeError("Mind not initialized. Create the app via create_app().")
+    return mind
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown."""
+    mind: Mind = app.state.mind
+
     # Startup
-    if _mind and hasattr(_mind.storage, "initialize"):
-        await _mind.storage.initialize()
+    if hasattr(mind.storage, "initialize"):
+        await mind.storage.initialize()
 
     yield
 
     # Shutdown
-    if _mind and hasattr(_mind.storage, "close"):
-        await _mind.storage.close()
+    if hasattr(mind.storage, "close"):
+        await mind.storage.close()
 
 
 def create_app(
@@ -61,27 +61,26 @@ def create_app(
 
     Usage:
         from sxth_mind.api import create_app
-        from examples.sales import SalesAdapter
+        from sxth_mind.adapters import SalesAdapter
 
         app = create_app(adapter=SalesAdapter())
 
         # Run with: uvicorn module:app --reload
     """
-    global _mind
-
-    # Create Mind instance
-    _mind = Mind(
-        adapter=adapter,
-        provider=provider,
-        storage=storage or MemoryStorage(),
-    )
-
     # Create FastAPI app
     app = FastAPI(
         title="sxth-mind",
         description="The understanding layer for adaptive AI products",
         version="0.1.0",
         lifespan=lifespan,
+    )
+
+    # Bind the Mind to this app instance (no module-level global, so multiple
+    # apps can coexist in one process and tests stay isolated).
+    app.state.mind = Mind(
+        adapter=adapter,
+        provider=provider,
+        storage=storage or MemoryStorage(),
     )
 
     # Add CORS middleware

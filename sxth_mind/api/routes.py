@@ -5,12 +5,14 @@ HTTP endpoints for sxth-mind.
 """
 
 from collections.abc import AsyncIterator
+from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from sxth_mind.api.app import get_mind
+from sxth_mind.mind import Mind
 
 router = APIRouter()
 
@@ -37,8 +39,8 @@ class ChatResponse(BaseModel):
 class StateResponse(BaseModel):
     """State response body."""
     user_id: str
-    user_mind: dict | None
-    project_mind: dict | None = None
+    user_mind: dict[str, Any] | None
+    project_mind: dict[str, Any] | None = None
 
 
 class ExplainResponse(BaseModel):
@@ -57,14 +59,30 @@ class NudgeResponse(BaseModel):
     status: str
 
 
+class NudgeActionResponse(BaseModel):
+    """Response for a nudge status change."""
+    status: str
+    nudge_id: str
+
+
+def _nudge_response(n: Any) -> NudgeResponse:
+    return NudgeResponse(
+        id=n.id,
+        nudge_type=n.nudge_type,
+        title=n.title,
+        message=n.message,
+        priority=n.priority,
+        status=n.status,
+    )
+
+
 # ═══════════════════════════════════════════════════════════════
 # Health Check
 # ═══════════════════════════════════════════════════════════════
 
 @router.get("/health")
-async def health_check():
+async def health_check(mind: Mind = Depends(get_mind)) -> dict[str, str]:
     """Health check endpoint."""
-    mind = get_mind()
     return {
         "status": "healthy",
         "adapter": mind.adapter.name,
@@ -76,8 +94,22 @@ async def health_check():
 # Chat Endpoints
 # ═══════════════════════════════════════════════════════════════
 
+async def _stream_chat(mind: Mind, request: ChatRequest) -> AsyncIterator[str]:
+    """Generate an SSE stream for a chat response."""
+    async for token in mind.chat_stream(
+        user_id=request.user_id,
+        message=request.message,
+        project_id=request.project_id,
+    ):
+        yield f"data: {token}\n\n"
+
+    yield "data: [DONE]\n\n"
+
+
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest, mind: Mind = Depends(get_mind)
+) -> ChatResponse | StreamingResponse:
     """
     Send a message and get a response.
 
@@ -88,11 +120,10 @@ async def chat(request: ChatRequest):
     """
     if request.stream:
         return StreamingResponse(
-            stream_chat(request),
+            _stream_chat(mind, request),
             media_type="text/event-stream",
         )
 
-    mind = get_mind()
     response = await mind.chat(
         user_id=request.user_id,
         message=request.message,
@@ -107,7 +138,9 @@ async def chat(request: ChatRequest):
 
 
 @router.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(
+    request: ChatRequest, mind: Mind = Depends(get_mind)
+) -> StreamingResponse:
     """
     Stream a chat response via Server-Sent Events.
 
@@ -115,23 +148,9 @@ async def chat_stream(request: ChatRequest):
     Final event contains [DONE].
     """
     return StreamingResponse(
-        stream_chat(request),
+        _stream_chat(mind, request),
         media_type="text/event-stream",
     )
-
-
-async def stream_chat(request: ChatRequest) -> AsyncIterator[str]:
-    """Generate SSE stream for chat response."""
-    mind = get_mind()
-
-    async for token in mind.chat_stream(
-        user_id=request.user_id,
-        message=request.message,
-        project_id=request.project_id,
-    ):
-        yield f"data: {token}\n\n"
-
-    yield "data: [DONE]\n\n"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -139,13 +158,14 @@ async def stream_chat(request: ChatRequest) -> AsyncIterator[str]:
 # ═══════════════════════════════════════════════════════════════
 
 @router.get("/state/{user_id}", response_model=StateResponse)
-async def get_state(user_id: str, project_id: str | None = None):
+async def get_state(
+    user_id: str, project_id: str | None = None, mind: Mind = Depends(get_mind)
+) -> StateResponse:
     """
     Get the cognitive state for a user.
 
     Returns UserMind and optionally ProjectMind data.
     """
-    mind = get_mind()
     state = await mind.get_state(user_id, project_id)
 
     return StateResponse(
@@ -156,13 +176,14 @@ async def get_state(user_id: str, project_id: str | None = None):
 
 
 @router.get("/explain/{user_id}", response_model=ExplainResponse)
-async def explain_state(user_id: str, project_id: str | None = None):
+async def explain_state(
+    user_id: str, project_id: str | None = None, mind: Mind = Depends(get_mind)
+) -> ExplainResponse:
     """
     Get a human-readable explanation of the user's state.
 
     Useful for debugging and understanding what the Mind knows.
     """
-    mind = get_mind()
     explanation = await mind.explain_state(user_id, project_id)
 
     return ExplainResponse(
@@ -176,72 +197,48 @@ async def explain_state(user_id: str, project_id: str | None = None):
 # ═══════════════════════════════════════════════════════════════
 
 @router.get("/nudges/{user_id}", response_model=list[NudgeResponse])
-async def get_nudges(user_id: str):
+async def get_nudges(
+    user_id: str, mind: Mind = Depends(get_mind)
+) -> list[NudgeResponse]:
     """
     Get pending nudges for a user.
 
     Nudges are proactive suggestions generated based on state.
     """
-    mind = get_mind()
     nudges = await mind.get_pending_nudges(user_id)
-
-    return [
-        NudgeResponse(
-            id=n.id,
-            nudge_type=n.nudge_type,
-            title=n.title,
-            message=n.message,
-            priority=n.priority,
-            status=n.status,
-        )
-        for n in nudges
-    ]
+    return [_nudge_response(n) for n in nudges]
 
 
 @router.post("/nudges/{user_id}/generate", response_model=list[NudgeResponse])
-async def generate_nudges(user_id: str, project_id: str | None = None):
+async def generate_nudges(
+    user_id: str, project_id: str | None = None, mind: Mind = Depends(get_mind)
+) -> list[NudgeResponse]:
     """
     Generate new nudges for a user based on current state.
 
     This checks all nudge rules and creates any applicable nudges.
     """
-    mind = get_mind()
-
-    from sxth_mind.engine import BaselineNudgeEngine
-    engine = BaselineNudgeEngine(mind.adapter, mind.storage)
-    nudges = await engine.check_and_generate(user_id, project_id)
-
-    return [
-        NudgeResponse(
-            id=n.id,
-            nudge_type=n.nudge_type,
-            title=n.title,
-            message=n.message,
-            priority=n.priority,
-            status=n.status,
-        )
-        for n in nudges
-    ]
+    nudges = await mind.check_nudges(user_id, project_id)
+    return [_nudge_response(n) for n in nudges]
 
 
-@router.post("/nudges/{nudge_id}/dismiss")
-async def dismiss_nudge(nudge_id: str):
-    """
-    Dismiss a nudge.
-
-    The nudge will be marked as dismissed and won't appear again.
-    """
-    # Note: This is a stub implementation.
-    # A real implementation would lookup the nudge by ID and update its status.
-    # For now, we just acknowledge the request.
-    return {"status": "dismissed", "nudge_id": nudge_id}
+@router.post("/nudges/{nudge_id}/dismiss", response_model=NudgeActionResponse)
+async def dismiss_nudge(
+    nudge_id: str, mind: Mind = Depends(get_mind)
+) -> NudgeActionResponse:
+    """Dismiss a nudge so it no longer appears as pending."""
+    updated = await mind.dismiss_nudge(nudge_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Nudge {nudge_id} not found")
+    return NudgeActionResponse(status="dismissed", nudge_id=nudge_id)
 
 
-@router.post("/nudges/{nudge_id}/act")
-async def act_on_nudge(nudge_id: str):
-    """
-    Mark a nudge as acted upon.
-
-    Call this when the user takes action based on the nudge.
-    """
-    return {"status": "acted", "nudge_id": nudge_id}
+@router.post("/nudges/{nudge_id}/act", response_model=NudgeActionResponse)
+async def act_on_nudge(
+    nudge_id: str, mind: Mind = Depends(get_mind)
+) -> NudgeActionResponse:
+    """Mark a nudge as acted upon (e.g. the user took the suggested action)."""
+    updated = await mind.act_on_nudge(nudge_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Nudge {nudge_id} not found")
+    return NudgeActionResponse(status="acted", nudge_id=nudge_id)

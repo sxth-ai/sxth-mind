@@ -7,8 +7,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.sales import SalesAdapter
 from sxth_mind import Mind
+from sxth_mind.adapters import SalesAdapter
 from sxth_mind.providers.base import BaseLLMProvider, LLMResponse
 from sxth_mind.storage import MemoryStorage
 

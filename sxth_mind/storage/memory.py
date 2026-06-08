@@ -23,7 +23,7 @@ class MemoryStorage(BaseStorage):
         mind = Mind(adapter=MyAdapter(), storage=storage)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._user_minds: dict[str, UserMind] = {}
         self._project_minds: dict[str, ProjectMind] = {}  # key: f"{user_id}:{project_id}"
         self._memories: dict[str, ConversationMemory] = {}  # key: project_mind_id
@@ -37,12 +37,15 @@ class MemoryStorage(BaseStorage):
     # ═══════════════════════════════════════════════════════════════
 
     async def get_user_mind(self, user_id: str) -> UserMind | None:
-        return self._user_minds.get(user_id)
+        stored = self._user_minds.get(user_id)
+        return stored.model_copy(deep=True) if stored else None
 
     async def save_user_mind(self, user_mind: UserMind) -> None:
         if not user_mind.id:
             user_mind.id = str(uuid4())
-        self._user_minds[user_mind.user_id] = user_mind
+        # Store an isolated snapshot so later mutation of the caller's object
+        # doesn't silently change persisted state (matches SQLite semantics).
+        self._user_minds[user_mind.user_id] = user_mind.model_copy(deep=True)
 
     async def delete_user_mind(self, user_id: str) -> None:
         # Delete user mind
@@ -66,7 +69,8 @@ class MemoryStorage(BaseStorage):
         self, user_id: str, project_id: str
     ) -> ProjectMind | None:
         key = self._project_key(user_id, project_id)
-        return self._project_minds.get(key)
+        stored = self._project_minds.get(key)
+        return stored.model_copy(deep=True) if stored else None
 
     async def save_project_mind(self, project_mind: ProjectMind) -> None:
         if not project_mind.id:
@@ -81,11 +85,12 @@ class MemoryStorage(BaseStorage):
 
         if user_id:
             key = self._project_key(user_id, project_mind.project_id)
-            self._project_minds[key] = project_mind
+            self._project_minds[key] = project_mind.model_copy(deep=True)
 
     async def get_project_minds_for_user(self, user_id: str) -> list[ProjectMind]:
         return [
-            pm for key, pm in self._project_minds.items()
+            pm.model_copy(deep=True)
+            for key, pm in self._project_minds.items()
             if key.startswith(f"{user_id}:")
         ]
 
@@ -103,12 +108,13 @@ class MemoryStorage(BaseStorage):
     # ═══════════════════════════════════════════════════════════════
 
     async def get_memory(self, project_mind_id: str) -> ConversationMemory | None:
-        return self._memories.get(project_mind_id)
+        stored = self._memories.get(project_mind_id)
+        return stored.model_copy(deep=True) if stored else None
 
     async def save_memory(self, memory: ConversationMemory) -> None:
         if not memory.id:
             memory.id = str(uuid4())
-        self._memories[memory.project_mind_id] = memory
+        self._memories[memory.project_mind_id] = memory.model_copy(deep=True)
 
     # ═══════════════════════════════════════════════════════════════
     # Nudge Operations
@@ -116,7 +122,7 @@ class MemoryStorage(BaseStorage):
 
     async def get_pending_nudges(self, user_id: str) -> list[Nudge]:
         nudges = self._nudges.get(user_id, [])
-        return [n for n in nudges if n.status == "pending"]
+        return [n.model_copy(deep=True) for n in nudges if n.status == "pending"]
 
     async def save_nudge(self, nudge: Nudge) -> None:
         if not nudge.id:
@@ -130,14 +136,23 @@ class MemoryStorage(BaseStorage):
                 break
 
         if user_id:
+            stored = nudge.model_copy(deep=True)
             if user_id not in self._nudges:
                 self._nudges[user_id] = []
             # Update existing or append
             for i, n in enumerate(self._nudges[user_id]):
                 if n.id == nudge.id:
-                    self._nudges[user_id][i] = nudge
+                    self._nudges[user_id][i] = stored
                     return
-            self._nudges[user_id].append(nudge)
+            self._nudges[user_id].append(stored)
+
+    async def update_nudge_status(self, nudge_id: str, status: str) -> bool:
+        for nudges in self._nudges.values():
+            for nudge in nudges:
+                if nudge.id == nudge_id:
+                    nudge.set_status(status)
+                    return True
+        return False
 
     # ═══════════════════════════════════════════════════════════════
     # Debug/Testing Helpers
@@ -150,7 +165,7 @@ class MemoryStorage(BaseStorage):
         self._memories.clear()
         self._nudges.clear()
 
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, int]:
         """Get storage stats."""
         return {
             "user_minds": len(self._user_minds),

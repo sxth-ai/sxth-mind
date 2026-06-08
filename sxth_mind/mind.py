@@ -10,11 +10,12 @@ And exposes a simple API: chat, get_state, get_nudges.
 """
 
 from collections.abc import AsyncIterator
+from typing import Any
 from uuid import uuid4
 
 from sxth_mind.adapters.base import BaseAdapter
 from sxth_mind.providers.base import BaseLLMProvider, Message
-from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
+from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
 from sxth_mind.storage.memory import MemoryStorage
 
@@ -27,7 +28,7 @@ class Mind:
 
     Usage:
         from sxth_mind import Mind
-        from sxth_mind.examples import SalesAdapter
+        from sxth_mind.adapters import SalesAdapter
 
         mind = Mind(adapter=SalesAdapter())
 
@@ -181,7 +182,9 @@ class Mind:
     # State Introspection
     # ═══════════════════════════════════════════════════════════════
 
-    async def get_state(self, user_id: str, project_id: str | None = None) -> dict:
+    async def get_state(
+        self, user_id: str, project_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Get the current cognitive state for a user.
 
@@ -192,7 +195,7 @@ class Mind:
         if not user_mind:
             return {"user_mind": None, "project_mind": None}
 
-        result = {"user_mind": user_mind.model_dump()}
+        result: dict[str, Any] = {"user_mind": user_mind.model_dump()}
 
         if project_id:
             project_mind = await self.storage.get_project_mind(user_id, project_id)
@@ -237,9 +240,34 @@ class Mind:
     # Nudges
     # ═══════════════════════════════════════════════════════════════
 
-    async def get_pending_nudges(self, user_id: str) -> list:
+    async def get_pending_nudges(self, user_id: str) -> list[Nudge]:
         """Get pending nudges for a user."""
         return await self.storage.get_pending_nudges(user_id)
+
+    async def check_nudges(
+        self, user_id: str, project_id: str | None = None
+    ) -> list[Nudge]:
+        """
+        Evaluate nudge rules for a user and persist any that fire.
+
+        Nudges are proactive and mostly time-based (inactivity, momentum drops,
+        streaks at risk), so they generally won't fire immediately after a chat —
+        you typically run this on a schedule (e.g. a daily job) or before
+        rendering a "what should I follow up on?" view. Returns the newly
+        generated nudges.
+        """
+        from sxth_mind.engine import BaselineNudgeEngine
+
+        engine = BaselineNudgeEngine(self.adapter, self.storage)
+        return await engine.check_and_generate(user_id, project_id)
+
+    async def dismiss_nudge(self, nudge_id: str) -> bool:
+        """Mark a nudge as dismissed. Returns True if the nudge existed."""
+        return await self.storage.update_nudge_status(nudge_id, "dismissed")
+
+    async def act_on_nudge(self, nudge_id: str) -> bool:
+        """Mark a nudge as acted upon. Returns True if the nudge existed."""
+        return await self.storage.update_nudge_status(nudge_id, "acted")
 
     # ═══════════════════════════════════════════════════════════════
     # Internal Methods
@@ -312,7 +340,7 @@ class Mind:
 
         return messages
 
-    def _format_context(self, context: dict) -> str:
+    def _format_context(self, context: dict[str, Any]) -> str:
         """Format context dict as readable text for the prompt."""
         if not context:
             return ""
@@ -339,7 +367,14 @@ class Mind:
         memory.add_message("user", message)
         memory.add_message("assistant", response)
 
-        # Let adapter update state
+        # Account for time elapsed since the last interaction before recording
+        # this one: refresh inactivity from the wall clock and decay momentum
+        # accordingly. This applies to every adapter, so momentum reflects real
+        # gaps in activity rather than only ever increasing.
+        project_mind.refresh_inactivity()
+        project_mind.apply_momentum_decay()
+
+        # Let adapter update state (increments counters, boosts momentum, etc.)
         self.adapter.update_after_interaction(user_mind, project_mind, message, response)
 
         # Persist

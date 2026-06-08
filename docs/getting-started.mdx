@@ -30,7 +30,7 @@ pip install sxth-mind[openai]
 ```python
 import asyncio
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 async def main():
     # Create a Mind with the Sales adapter
@@ -94,7 +94,7 @@ pip install sxth-mind[sqlite]
 ```python
 from sxth_mind import Mind
 from sxth_mind.storage import SQLiteStorage
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 # State persists to minds.db
 mind = Mind(
@@ -112,7 +112,7 @@ By default, sxth-mind uses OpenAI with `gpt-4o-mini`. To customize:
 ```python
 from sxth_mind import Mind
 from sxth_mind.providers.openai import OpenAIProvider
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 mind = Mind(
     adapter=SalesAdapter(),
@@ -154,7 +154,7 @@ sxth-mind comes with three example adapters:
 ### Habits
 
 ```python
-from examples.habits import HabitCoachAdapter
+from sxth_mind.adapters import HabitCoachAdapter
 
 mind = Mind(adapter=HabitCoachAdapter())
 
@@ -166,7 +166,7 @@ await mind.chat("user_1", "Missed yesterday, feeling bad about it")
 ### Learning
 
 ```python
-from examples.learning import LearningAdapter
+from sxth_mind.adapters import LearningAdapter
 
 mind = Mind(adapter=LearningAdapter())
 

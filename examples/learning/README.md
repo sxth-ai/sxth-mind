@@ -15,7 +15,7 @@ This adapter models a learner developing skills or knowledge. It demonstrates:
 
 ```python
 from sxth_mind import Mind
-from examples.learning import LearningAdapter
+from sxth_mind.adapters import LearningAdapter
 
 mind = Mind(adapter=LearningAdapter())
 

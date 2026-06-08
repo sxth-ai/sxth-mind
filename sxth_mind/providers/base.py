@@ -58,7 +58,7 @@ class BaseLLMProvider(ABC):
         self,
         messages: list[Message],
         model: str | None = None,
-        tools: list[dict] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
     ) -> LLMResponse:
@@ -78,16 +78,20 @@ class BaseLLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def chat_stream(
+    def chat_stream(
         self,
         messages: list[Message],
         model: str | None = None,
-        tools: list[dict] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
     ) -> AsyncIterator[str]:
         """
         Stream a response token by token.
+
+        Implementations are async generators (``async def`` with ``yield``);
+        this is declared as a plain method returning an ``AsyncIterator`` so the
+        return type matches at call sites (``async for x in provider.chat_stream(...)``).
 
         Args:
             messages: Conversation messages
@@ -106,7 +110,7 @@ class BaseLLMProvider(ABC):
         """Default model for this provider."""
         return "gpt-4o-mini"
 
-    def format_messages(self, messages: list[Message]) -> list[dict]:
+    def format_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
         """Convert Message objects to provider format."""
         return [
             {"role": m.role, "content": m.content}

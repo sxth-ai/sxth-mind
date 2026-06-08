@@ -1,6 +1,8 @@
 """Tests for schema models."""
 
+from datetime import timedelta
 
+from sxth_mind._time import utcnow
 from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
 
 
@@ -36,6 +38,17 @@ class TestUserMind:
         user_mind.increment_interactions()
         assert user_mind.total_interactions == 1
         assert user_mind.last_interaction is not None
+
+    def test_trust_grows_with_interactions(self):
+        user_mind = UserMind(user_id="test_user")
+
+        start = user_mind.trust_score
+        for _ in range(5):
+            user_mind.increment_interactions()
+
+        # Trust should climb toward 1.0 but never exceed it.
+        assert user_mind.trust_score > start
+        assert user_mind.trust_score <= 1.0
 
 
 class TestProjectMind:
@@ -81,6 +94,51 @@ class TestProjectMind:
         project_mind.update_momentum()
         assert project_mind.days_since_activity == 0
         assert project_mind.momentum_score == 0.6  # 0.5 + 0.1
+
+    def test_refresh_inactivity_from_last_interaction(self):
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+            last_interaction=utcnow() - timedelta(days=4),
+        )
+
+        assert project_mind.refresh_inactivity() == 4
+        assert project_mind.days_since_activity == 4
+
+    def test_refresh_inactivity_preserves_value_without_timestamp(self):
+        # No last_interaction set: keep whatever was provided (don't clobber to 0).
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+            days_since_activity=9,
+        )
+
+        assert project_mind.refresh_inactivity() == 9
+
+    def test_momentum_decays_with_inactivity(self):
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+            momentum_score=0.9,
+            days_since_activity=5,
+        )
+
+        project_mind.apply_momentum_decay()
+        # 0.9 - 0.1 * 5 = 0.4, clamped at 0.0 floor.
+        assert project_mind.momentum_score == 0.4
+
+    def test_trust_grows_with_interactions(self):
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+        )
+
+        start = project_mind.trust_score
+        for _ in range(5):
+            project_mind.increment_interactions()
+
+        assert project_mind.trust_score > start
+        assert project_mind.trust_score <= 1.0
 
 
 class TestConversationMemory:

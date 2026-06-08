@@ -7,8 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.habits import HabitCoachAdapter
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import HabitCoachAdapter, SalesAdapter
 from sxth_mind.engine import BaselineNudgeEngine
 from sxth_mind.schemas import ProjectMind, UserMind
 from sxth_mind.storage import MemoryStorage
@@ -105,6 +104,29 @@ class TestBaselineNudgeEngine:
 
         nudges = await engine.check_and_generate("user_1")
         assert len(nudges) == 0  # No nudges because frequency is off
+
+    @pytest.mark.asyncio
+    async def test_inactivity_nudge_from_wall_clock(self, habits_adapter, storage):
+        # No days_since_activity is set manually: the engine must derive it from
+        # last_interaction. This is the regression test for time-based nudges.
+        from datetime import timedelta
+
+        from sxth_mind._time import utcnow
+
+        user_mind = UserMind(id="um_1", user_id="user_1")
+        await storage.save_user_mind(user_mind)
+
+        project_mind = ProjectMind(
+            id="pm_1",
+            user_mind_id="um_1",
+            project_id="habit_1",
+            last_interaction=utcnow() - timedelta(days=10),
+        )
+        await storage.save_project_mind(project_mind)
+
+        engine = BaselineNudgeEngine(habits_adapter, storage)
+        nudges = await engine.check_and_generate("user_1")
+        assert any(n.nudge_type == "comeback" for n in nudges)
 
     @pytest.mark.asyncio
     async def test_momentum_drop_nudge(self, sales_adapter, storage):

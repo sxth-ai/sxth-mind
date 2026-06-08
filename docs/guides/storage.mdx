@@ -15,7 +15,7 @@ In-memory storage. Data is lost when the process exits. Good for development and
 
 ```python
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 # Memory storage is the default
 mind = Mind(adapter=SalesAdapter())
@@ -32,7 +32,7 @@ pip install sxth-mind[sqlite]
 ```python
 from sxth_mind import Mind
 from sxth_mind.storage import SQLiteStorage
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 mind = Mind(
     adapter=SalesAdapter(),

@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from sxth_mind._time import utcnow
+
 
 class Message(BaseModel):
     """A single message in a conversation."""
@@ -21,7 +23,7 @@ class Message(BaseModel):
     tool_call_id: str | None = Field(
         default=None, description="Tool call ID if role=tool"
     )
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utcnow)
 
     model_config = {"extra": "allow"}
 
@@ -55,21 +57,21 @@ class ConversationMemory(BaseModel):
     )
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
     model_config = {"extra": "allow"}
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the conversation."""
         self.messages.append(Message(role=role, content=content))  # type: ignore
-        self.updated_at = datetime.utcnow()
+        self.updated_at = utcnow()
 
     def get_recent_messages(self, limit: int = 10) -> list[Message]:
         """Get the most recent messages."""
         return self.messages[-limit:]
 
-    def to_openai_messages(self, limit: int = 10) -> list[dict]:
+    def to_openai_messages(self, limit: int = 10) -> list[dict[str, str]]:
         """Convert recent messages to OpenAI format."""
         return [
             {"role": m.role, "content": m.content}

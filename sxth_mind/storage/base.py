@@ -95,6 +95,15 @@ class BaseStorage(ABC):
         """Save a nudge."""
         pass
 
+    @abstractmethod
+    async def update_nudge_status(self, nudge_id: str, status: str) -> bool:
+        """
+        Update a nudge's status (e.g. 'dismissed', 'acted').
+
+        Returns True if a nudge with that id existed and was updated.
+        """
+        pass
+
     # ═══════════════════════════════════════════════════════════════
     # Lifecycle
     # ═══════════════════════════════════════════════════════════════

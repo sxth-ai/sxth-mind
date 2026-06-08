@@ -15,7 +15,7 @@ This adapter models a sales rep working deals through a pipeline. It demonstrate
 
 ```python
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 mind = Mind(adapter=SalesAdapter())
 

@@ -8,8 +8,11 @@ import argparse
 import asyncio
 import sys
 
+from sxth_mind.adapters.base import BaseAdapter
+from sxth_mind.storage.base import BaseStorage
 
-def main():
+
+def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         description="sxth-mind: The understanding layer for adaptive AI products",
@@ -93,7 +96,7 @@ Learn more at https://github.com/sxth-ai/sxth-mind
         parser.print_help()
 
 
-def show_info():
+def show_info() -> None:
     """Show package information."""
     from sxth_mind import __version__
 
@@ -105,7 +108,7 @@ The Mind accumulates state, detects patterns, and adapts over time.
 
 Quick Start:
   from sxth_mind import Mind
-  from examples.sales import SalesAdapter
+  from sxth_mind.adapters import SalesAdapter
 
   mind = Mind(adapter=SalesAdapter())
   response = await mind.chat("user_1", "Hello!")
@@ -114,34 +117,34 @@ Learn more: https://github.com/sxth-ai/sxth-mind
 """)
 
 
-def get_adapter(adapter_name: str):
+def get_adapter(adapter_name: str) -> BaseAdapter:
     """Load an adapter by name."""
     if adapter_name == "sales":
-        from examples.sales import SalesAdapter
+        from sxth_mind.adapters import SalesAdapter
         return SalesAdapter()
     elif adapter_name == "habits":
-        from examples.habits import HabitCoachAdapter
+        from sxth_mind.adapters import HabitCoachAdapter
         return HabitCoachAdapter()
     elif adapter_name == "learning":
-        from examples.learning import LearningAdapter
+        from sxth_mind.adapters import LearningAdapter
         return LearningAdapter()
     else:
         raise ValueError(f"Unknown adapter: {adapter_name}")
 
 
-def get_storage(storage_name: str, db_path: str = "sxth_mind.db"):
+def get_storage(storage_name: str, db_path: str = "sxth_mind.db") -> BaseStorage:
     """Load a storage backend by name."""
     if storage_name == "memory":
         from sxth_mind.storage import MemoryStorage
         return MemoryStorage()
     elif storage_name == "sqlite":
-        from sxth_mind.storage import SQLiteStorage
+        from sxth_mind.storage.sqlite import SQLiteStorage
         return SQLiteStorage(db_path)
     else:
         raise ValueError(f"Unknown storage: {storage_name}")
 
 
-def run_server(args):
+def run_server(args: argparse.Namespace) -> None:
     """Run the HTTP server."""
     try:
         import uvicorn
@@ -183,7 +186,7 @@ def run_server(args):
     )
 
 
-async def run_demo(adapter_name: str, user_id: str):
+async def run_demo(adapter_name: str, user_id: str) -> None:
     """Run interactive demo."""
     try:
         from sxth_mind import Mind
