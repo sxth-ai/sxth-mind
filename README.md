@@ -91,9 +91,9 @@ asyncio.run(main())
 
 ### Core
 - **Mind** — Central abstraction coordinating state, LLM calls, and persistence
-- **UserMind** — User-level identity, patterns, and preferences
-- **ProjectMind** — Context-specific state (deals, habits, learning topics)
-- **ConversationMemory** — Sliding window of recent messages
+- **UserMind** — User-level identity, patterns, and preferences (owned belief state)
+- **ProjectMind** — Context-specific state: journey stage, momentum, derived summary/topics
+- **EvidenceSource** — Pluggable raw substrate (messages/events) sxth-mind reads but doesn't own
 
 ### Adapters
 - **Domain-specific behavior** — Define identity types, journey stages, and nudge templates
@@ -107,7 +107,8 @@ asyncio.run(main())
 
 ### Infrastructure
 - **Pluggable LLM providers** — OpenAI included, bring your own
-- **Pluggable storage** — Memory (default), SQLite, or custom
+- **Pluggable storage** — belief state in Memory (default), SQLite, or custom
+- **Pluggable evidence** — raw history in a local store, your own DB, or a memory vendor (Mem0/Zep)
 - **HTTP API** — FastAPI server for service deployment
 - **CLI** — Demo mode and server commands
 
@@ -115,22 +116,26 @@ asyncio.run(main())
 
 ## Architecture
 
+Own the beliefs, rent the bytes — the cognitive state is sxth-mind's; the raw
+history lives in a substrate you control.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                           Mind                                   │
 │                                                                  │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
-│   │  UserMind   │  │ ProjectMind │  │   Memory    │            │
-│   │  (identity) │  │  (context)  │  │  (history)  │            │
-│   └─────────────┘  └─────────────┘  └─────────────┘            │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-        ┌───────────────────┼───────────────────┐
-        ▼                   ▼                   ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│    Adapter    │   │   Provider    │   │    Storage    │
-│  (domain)     │   │  (LLM)        │   │  (persist)    │
-└───────────────┘   └───────────────┘   └───────────────┘
+│   ┌─────────────┐  ┌─────────────┐   OWNED belief state          │
+│   │  UserMind   │  │ ProjectMind │   (identity, journey,         │
+│   │  (identity) │  │  (context)  │    momentum, derived views)   │
+│   └─────────────┘  └─────────────┘                              │
+└──────────┬───────────────────────────────────┬──────────────────┘
+           │                                   │ reads / derives from
+   ┌───────┼───────────────┐                   ▼
+   ▼       ▼               ▼            ┌───────────────┐
+┌─────────┐ ┌──────────┐ ┌──────────┐  │ EvidenceSource│
+│ Adapter │ │ Provider │ │ Storage  │  │  (RENTED:     │
+│(domain) │ │  (LLM)   │ │(beliefs) │  │  your DB,     │
+└─────────┘ └──────────┘ └──────────┘  │  Mem0, Zep…)  │
+                                       └───────────────┘
 ```
 
 ---
@@ -215,9 +220,9 @@ sxth-mind serve --adapter sales --port 8000
 
 - **Not an agent framework** — We don't plan or execute actions
 - **Not a vector database** — We don't do similarity search
-- **Not chat history** — We store derived understanding, not transcripts
+- **Not a memory store** — We don't own your transcripts; we read them from wherever they already live and maintain the *derived understanding* on top
 
-sxth-mind is **cognitive infrastructure**. You bring the intelligence; we maintain the understanding.
+sxth-mind is the **cognition layer**. Own the beliefs, rent the bytes — you bring the data (and the intelligence); we maintain the understanding.
 
 ---
 
