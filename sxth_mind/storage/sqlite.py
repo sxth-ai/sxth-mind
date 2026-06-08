@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
+from sxth_mind.schemas import Nudge, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
 
 
@@ -70,14 +70,6 @@ class SQLiteStorage(BaseStorage):
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(user_id, project_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS memories (
-                id TEXT PRIMARY KEY,
-                project_mind_id TEXT UNIQUE NOT NULL,
-                data TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS nudges (
@@ -215,57 +207,10 @@ class SQLiteStorage(BaseStorage):
     async def delete_project_mind(self, user_id: str, project_id: str) -> None:
         self._ensure_connected()
 
-        # Get project_mind_id first
-        async with self._conn.execute(
-            "SELECT id FROM project_minds WHERE user_id = ? AND project_id = ?",
-            (user_id, project_id)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                pm_id = row[0]
-                # Delete related memory
-                await self._conn.execute(
-                    "DELETE FROM memories WHERE project_mind_id = ?", (pm_id,)
-                )
-
         await self._conn.execute(
             "DELETE FROM project_minds WHERE user_id = ? AND project_id = ?",
             (user_id, project_id)
         )
-        await self._conn.commit()
-
-    # ═══════════════════════════════════════════════════════════════
-    # ConversationMemory Operations
-    # ═══════════════════════════════════════════════════════════════
-
-    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None:
-        self._ensure_connected()
-
-        async with self._conn.execute(
-            "SELECT data FROM memories WHERE project_mind_id = ?",
-            (project_mind_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                return ConversationMemory.model_validate_json(row[0])
-            return None
-
-    async def save_memory(self, memory: ConversationMemory) -> None:
-        self._ensure_connected()
-
-        if not memory.id:
-            memory.id = str(uuid4())
-
-        data = memory.model_dump_json()
-        now = memory.updated_at.isoformat()
-
-        await self._conn.execute("""
-            INSERT INTO memories (id, project_mind_id, data, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(project_mind_id) DO UPDATE SET
-                data = excluded.data,
-                updated_at = excluded.updated_at
-        """, (memory.id, memory.project_mind_id, data, now, now))
         await self._conn.commit()
 
     # ═══════════════════════════════════════════════════════════════

@@ -104,6 +104,18 @@ class ProjectMind(BaseModel):
         description="Domain-specific progress data",
     )
 
+    # Derived conversation understanding (OWNED belief state, not raw bytes).
+    # The raw messages live in an EvidenceSource; these are the consolidated,
+    # cognition-produced views of them. Populated by summarization/consolidation.
+    conversation_summary: str | None = Field(
+        default=None,
+        description="Running summary of conversation history beyond the recent window",
+    )
+    topics: list[str] = Field(
+        default_factory=list,
+        description="Key topics/themes derived from conversation",
+    )
+
     # Timestamps
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

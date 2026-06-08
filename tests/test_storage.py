@@ -2,7 +2,7 @@
 
 import pytest
 
-from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
+from sxth_mind.schemas import Nudge, ProjectMind, UserMind
 from sxth_mind.storage import MemoryStorage
 
 
@@ -65,16 +65,6 @@ class TestMemoryStorage:
         assert len(projects) == 3
 
     @pytest.mark.asyncio
-    async def test_memory_crud(self, storage):
-        memory = ConversationMemory(project_mind_id="pm_1")
-        memory.add_message("user", "Hello")
-        await storage.save_memory(memory)
-
-        loaded = await storage.get_memory("pm_1")
-        assert loaded is not None
-        assert len(loaded.messages) == 1
-
-    @pytest.mark.asyncio
     async def test_saved_state_is_isolated_from_caller(self, storage):
         # Mutating the object after saving must not change persisted state.
         user_mind = UserMind(id="um_1", user_id="user_1", trust_score=0.5)
@@ -111,6 +101,8 @@ class TestMemoryStorage:
     async def test_stats(self, storage):
         stats = storage.stats()
         assert stats["user_minds"] == 0
+        # Raw bytes are no longer a belief-store concern.
+        assert "memories" not in stats
 
         await storage.save_user_mind(UserMind(user_id="user_1"))
         stats = storage.stats()

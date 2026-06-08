@@ -4,7 +4,8 @@ Mind - The Core Abstraction
 The Mind is the central interface for sxth-mind. It coordinates:
 - Adapter (domain-specific behavior)
 - Provider (LLM calls)
-- Storage (persistence)
+- Storage (the OWNED belief state: UserMind/ProjectMind/Nudge)
+- EvidenceSource (the RENTED raw substrate: messages/events)
 
 And exposes a simple API: chat, get_state, get_nudges.
 """
@@ -14,8 +15,10 @@ from typing import Any
 from uuid import uuid4
 
 from sxth_mind.adapters.base import BaseAdapter
+from sxth_mind.evidence.base import EvidenceSource
+from sxth_mind.evidence.local import LocalEvidenceSource
 from sxth_mind.providers.base import BaseLLMProvider, Message
-from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
+from sxth_mind.schemas import Event, Nudge, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
 from sxth_mind.storage.memory import MemoryStorage
 
@@ -51,6 +54,7 @@ class Mind:
         adapter: BaseAdapter,
         provider: BaseLLMProvider | None = None,
         storage: BaseStorage | None = None,
+        evidence: EvidenceSource | None = None,
     ):
         """
         Initialize a Mind.
@@ -58,10 +62,15 @@ class Mind:
         Args:
             adapter: Domain adapter (required) - defines identity, stages, nudges
             provider: LLM provider (optional) - defaults to OpenAI if available
-            storage: Storage backend (optional) - defaults to in-memory
+            storage: Belief store (optional) - persists UserMind/ProjectMind/Nudge;
+                defaults to in-memory
+            evidence: Evidence source (optional) - the rented raw substrate of
+                messages/events; defaults to a process-local store. Point this at
+                the app's own store or a memory vendor (Mem0/Zep) in production.
         """
         self.adapter = adapter
         self.storage = storage or MemoryStorage()
+        self.evidence = evidence or LocalEvidenceSource()
         self._provider = provider
 
     @property
@@ -116,22 +125,22 @@ class Mind:
         """
         project_id = project_id or "default"
 
-        # Load or create minds
+        # Load or create belief state
         user_mind = await self._get_or_create_user_mind(user_id)
         project_mind = await self._get_or_create_project_mind(user_mind, project_id)
 
-        # Load conversation memory
-        memory = await self._get_or_create_memory(project_mind)
+        # Pull recent raw evidence from the substrate (rented, not owned)
+        recent = await self.evidence.recent(user_id, project_id, limit=10)
 
         # Build messages with context
-        messages = self._build_messages(user_mind, project_mind, memory, message)
+        messages = self._build_messages(user_mind, project_mind, recent, message)
 
         # Call LLM
         response = await self.provider.chat(messages)
 
-        # Update state
-        await self._update_after_interaction(
-            user_mind, project_mind, memory, message, response.content
+        # Record the turn and update belief state
+        await self._record_and_update(
+            user_id, project_id, user_mind, project_mind, message, response.content
         )
 
         return response.content
@@ -157,15 +166,15 @@ class Mind:
         """
         project_id = project_id or "default"
 
-        # Load or create minds
+        # Load or create belief state
         user_mind = await self._get_or_create_user_mind(user_id)
         project_mind = await self._get_or_create_project_mind(user_mind, project_id)
 
-        # Load conversation memory
-        memory = await self._get_or_create_memory(project_mind)
+        # Pull recent raw evidence from the substrate (rented, not owned)
+        recent = await self.evidence.recent(user_id, project_id, limit=10)
 
         # Build messages
-        messages = self._build_messages(user_mind, project_mind, memory, message)
+        messages = self._build_messages(user_mind, project_mind, recent, message)
 
         # Stream response and collect full content
         full_response = ""
@@ -173,9 +182,9 @@ class Mind:
             full_response += token
             yield token
 
-        # Update state after streaming completes
-        await self._update_after_interaction(
-            user_mind, project_mind, memory, message, full_response
+        # Record the turn and update belief state after streaming completes
+        await self._record_and_update(
+            user_id, project_id, user_mind, project_mind, message, full_response
         )
 
     # ═══════════════════════════════════════════════════════════════
@@ -300,25 +309,14 @@ class Mind:
             await self.storage.save_project_mind(project_mind)
         return project_mind
 
-    async def _get_or_create_memory(self, project_mind: ProjectMind) -> ConversationMemory:
-        """Load or create conversation memory."""
-        memory = await self.storage.get_memory(project_mind.id)
-        if not memory:
-            memory = ConversationMemory(
-                id=str(uuid4()),
-                project_mind_id=project_mind.id,
-            )
-            await self.storage.save_memory(memory)
-        return memory
-
     def _build_messages(
         self,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        memory: ConversationMemory,
+        recent: list[Event],
         new_message: str,
     ) -> list[Message]:
-        """Build the message list for the LLM."""
+        """Build the message list for the LLM from belief state + recent evidence."""
         # Get system prompt from adapter
         system_prompt = self.adapter.get_system_prompt(user_mind, project_mind)
 
@@ -331,9 +329,12 @@ class Mind:
 
         messages = [Message(role="system", content=system_prompt)]
 
-        # Add conversation history
-        for msg in memory.get_recent_messages(limit=10):
-            messages.append(Message(role=msg.role, content=msg.content))
+        # Add conversation history from recent evidence (messages only)
+        for event in recent:
+            if event.kind != "message":
+                continue
+            role = event.role if event.role in ("user", "assistant", "system") else "user"
+            messages.append(Message(role=role, content=event.content))
 
         # Add new message
         messages.append(Message(role="user", content=new_message))
@@ -354,18 +355,28 @@ class Mind:
 
         return "\n".join(lines)
 
-    async def _update_after_interaction(
+    async def _record_and_update(
         self,
+        user_id: str,
+        project_id: str,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        memory: ConversationMemory,
         message: str,
         response: str,
     ) -> None:
-        """Update state after an interaction."""
-        # Add to memory
-        memory.add_message("user", message)
-        memory.add_message("assistant", response)
+        """Append the turn to the evidence substrate, then update belief state."""
+        # Append raw turns to the rented substrate (no-op if the app owns writes)
+        await self.evidence.append(
+            Event(user_id=user_id, project_id=project_id, role="user", content=message)
+        )
+        await self.evidence.append(
+            Event(
+                user_id=user_id,
+                project_id=project_id,
+                role="assistant",
+                content=response,
+            )
+        )
 
         # Account for time elapsed since the last interaction before recording
         # this one: refresh inactivity from the wall clock and decay momentum
@@ -374,10 +385,9 @@ class Mind:
         project_mind.refresh_inactivity()
         project_mind.apply_momentum_decay()
 
-        # Let adapter update state (increments counters, boosts momentum, etc.)
+        # Let adapter update belief state (increments counters, boosts momentum, etc.)
         self.adapter.update_after_interaction(user_mind, project_mind, message, response)
 
-        # Persist
+        # Persist the owned belief state
         await self.storage.save_user_mind(user_mind)
         await self.storage.save_project_mind(project_mind)
-        await self.storage.save_memory(memory)

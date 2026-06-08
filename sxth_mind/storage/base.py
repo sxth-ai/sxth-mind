@@ -7,14 +7,17 @@ in your preferred backend (memory, SQLite, Postgres, etc.)
 
 from abc import ABC, abstractmethod
 
-from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
+from sxth_mind.schemas import Nudge, ProjectMind, UserMind
 
 
 class BaseStorage(ABC):
     """
-    Abstract interface for persistence.
+    Abstract interface for persisting the OWNED belief state
+    (UserMind, ProjectMind, Nudge).
 
-    Implement this to store minds in your preferred backend.
+    Raw conversation/event bytes are NOT stored here — they live behind an
+    EvidenceSource (the rented substrate). This store is the system of record
+    for beliefs only.
 
     Example implementations:
     - MemoryStorage: In-memory (default, for testing/demos)
@@ -65,20 +68,6 @@ class BaseStorage(ABC):
     @abstractmethod
     async def delete_project_mind(self, user_id: str, project_id: str) -> None:
         """Delete a ProjectMind."""
-        pass
-
-    # ═══════════════════════════════════════════════════════════════
-    # ConversationMemory Operations
-    # ═══════════════════════════════════════════════════════════════
-
-    @abstractmethod
-    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None:
-        """Get conversation memory for a project."""
-        pass
-
-    @abstractmethod
-    async def save_memory(self, memory: ConversationMemory) -> None:
-        """Save conversation memory."""
         pass
 
     # ═══════════════════════════════════════════════════════════════

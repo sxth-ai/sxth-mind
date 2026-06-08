@@ -7,7 +7,7 @@ Data is lost when the process exits.
 
 from uuid import uuid4
 
-from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
+from sxth_mind.schemas import Nudge, ProjectMind, UserMind
 from sxth_mind.storage.base import BaseStorage
 
 
@@ -26,7 +26,6 @@ class MemoryStorage(BaseStorage):
     def __init__(self) -> None:
         self._user_minds: dict[str, UserMind] = {}
         self._project_minds: dict[str, ProjectMind] = {}  # key: f"{user_id}:{project_id}"
-        self._memories: dict[str, ConversationMemory] = {}  # key: project_mind_id
         self._nudges: dict[str, list[Nudge]] = {}  # key: user_id
 
     def _project_key(self, user_id: str, project_id: str) -> str:
@@ -97,24 +96,7 @@ class MemoryStorage(BaseStorage):
     async def delete_project_mind(self, user_id: str, project_id: str) -> None:
         key = self._project_key(user_id, project_id)
         if key in self._project_minds:
-            pm = self._project_minds[key]
-            # Delete associated memory
-            if pm.id in self._memories:
-                del self._memories[pm.id]
             del self._project_minds[key]
-
-    # ═══════════════════════════════════════════════════════════════
-    # ConversationMemory Operations
-    # ═══════════════════════════════════════════════════════════════
-
-    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None:
-        stored = self._memories.get(project_mind_id)
-        return stored.model_copy(deep=True) if stored else None
-
-    async def save_memory(self, memory: ConversationMemory) -> None:
-        if not memory.id:
-            memory.id = str(uuid4())
-        self._memories[memory.project_mind_id] = memory.model_copy(deep=True)
 
     # ═══════════════════════════════════════════════════════════════
     # Nudge Operations
@@ -162,7 +144,6 @@ class MemoryStorage(BaseStorage):
         """Clear all stored data."""
         self._user_minds.clear()
         self._project_minds.clear()
-        self._memories.clear()
         self._nudges.clear()
 
     def stats(self) -> dict[str, int]:
@@ -170,6 +151,5 @@ class MemoryStorage(BaseStorage):
         return {
             "user_minds": len(self._user_minds),
             "project_minds": len(self._project_minds),
-            "memories": len(self._memories),
             "nudges": sum(len(n) for n in self._nudges.values()),
         }

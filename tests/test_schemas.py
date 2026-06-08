@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from sxth_mind._time import utcnow
-from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class TestUserMind:
@@ -140,43 +140,11 @@ class TestProjectMind:
         assert project_mind.trust_score > start
         assert project_mind.trust_score <= 1.0
 
+    def test_derived_conversation_fields_are_owned_belief_state(self):
+        # summary/topics are the OWNED derived view; raw messages live in the
+        # EvidenceSource, not on ProjectMind.
+        project_mind = ProjectMind(user_mind_id="user_mind_1", project_id="project_1")
 
-class TestConversationMemory:
-    def test_create_with_defaults(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
-
-        assert memory.messages == []
-        assert memory.summary is None
-
-    def test_add_message(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
-
-        memory.add_message("user", "Hello")
-        memory.add_message("assistant", "Hi there!")
-
-        assert len(memory.messages) == 2
-        assert memory.messages[0].role == "user"
-        assert memory.messages[0].content == "Hello"
-
-    def test_get_recent_messages(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
-
-        for i in range(15):
-            memory.add_message("user", f"Message {i}")
-
-        recent = memory.get_recent_messages(limit=5)
-        assert len(recent) == 5
-        assert recent[0].content == "Message 10"
-        assert recent[4].content == "Message 14"
-
-    def test_to_openai_messages(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
-        memory.add_message("user", "Hello")
-        memory.add_message("assistant", "Hi!")
-
-        openai_format = memory.to_openai_messages()
-
-        assert openai_format == [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi!"},
-        ]
+        assert project_mind.conversation_summary is None
+        assert project_mind.topics == []
+        assert not hasattr(project_mind, "messages")
