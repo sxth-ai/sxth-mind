@@ -1,7 +1,9 @@
 """Tests for schema models."""
 
+from datetime import timedelta
 
-from sxth_mind.schemas import ConversationMemory, ProjectMind, UserMind
+from sxth_mind._time import utcnow
+from sxth_mind.schemas import ProjectMind, UserMind
 
 
 class TestUserMind:
@@ -36,6 +38,17 @@ class TestUserMind:
         user_mind.increment_interactions()
         assert user_mind.total_interactions == 1
         assert user_mind.last_interaction is not None
+
+    def test_trust_grows_with_interactions(self):
+        user_mind = UserMind(user_id="test_user")
+
+        start = user_mind.trust_score
+        for _ in range(5):
+            user_mind.increment_interactions()
+
+        # Trust should climb toward 1.0 but never exceed it.
+        assert user_mind.trust_score > start
+        assert user_mind.trust_score <= 1.0
 
 
 class TestProjectMind:
@@ -82,43 +95,56 @@ class TestProjectMind:
         assert project_mind.days_since_activity == 0
         assert project_mind.momentum_score == 0.6  # 0.5 + 0.1
 
+    def test_refresh_inactivity_from_last_interaction(self):
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+            last_interaction=utcnow() - timedelta(days=4),
+        )
 
-class TestConversationMemory:
-    def test_create_with_defaults(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
+        assert project_mind.refresh_inactivity() == 4
+        assert project_mind.days_since_activity == 4
 
-        assert memory.messages == []
-        assert memory.summary is None
+    def test_refresh_inactivity_preserves_value_without_timestamp(self):
+        # No last_interaction set: keep whatever was provided (don't clobber to 0).
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+            days_since_activity=9,
+        )
 
-    def test_add_message(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
+        assert project_mind.refresh_inactivity() == 9
 
-        memory.add_message("user", "Hello")
-        memory.add_message("assistant", "Hi there!")
+    def test_momentum_decays_with_inactivity(self):
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+            momentum_score=0.9,
+            days_since_activity=5,
+        )
 
-        assert len(memory.messages) == 2
-        assert memory.messages[0].role == "user"
-        assert memory.messages[0].content == "Hello"
+        project_mind.apply_momentum_decay()
+        # 0.9 - 0.1 * 5 = 0.4, clamped at 0.0 floor.
+        assert project_mind.momentum_score == 0.4
 
-    def test_get_recent_messages(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
+    def test_trust_grows_with_interactions(self):
+        project_mind = ProjectMind(
+            user_mind_id="user_mind_1",
+            project_id="project_1",
+        )
 
-        for i in range(15):
-            memory.add_message("user", f"Message {i}")
+        start = project_mind.trust_score
+        for _ in range(5):
+            project_mind.increment_interactions()
 
-        recent = memory.get_recent_messages(limit=5)
-        assert len(recent) == 5
-        assert recent[0].content == "Message 10"
-        assert recent[4].content == "Message 14"
+        assert project_mind.trust_score > start
+        assert project_mind.trust_score <= 1.0
 
-    def test_to_openai_messages(self):
-        memory = ConversationMemory(project_mind_id="pm_1")
-        memory.add_message("user", "Hello")
-        memory.add_message("assistant", "Hi!")
+    def test_derived_conversation_fields_are_owned_belief_state(self):
+        # summary/topics are the OWNED derived view; raw messages live in the
+        # EvidenceSource, not on ProjectMind.
+        project_mind = ProjectMind(user_mind_id="user_mind_1", project_id="project_1")
 
-        openai_format = memory.to_openai_messages()
-
-        assert openai_format == [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi!"},
-        ]
+        assert project_mind.conversation_summary is None
+        assert project_mind.topics == []
+        assert not hasattr(project_mind, "messages")

@@ -27,7 +27,7 @@ class OpenAIProvider(BaseLLMProvider):
         organization: str | None = None,
         base_url: str | None = None,
         default_model: str = "gpt-4o-mini",
-    ):
+    ) -> None:
         """
         Initialize OpenAI provider.
 
@@ -60,7 +60,7 @@ class OpenAIProvider(BaseLLMProvider):
         self,
         messages: list[Message],
         model: str | None = None,
-        tools: list[dict] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
     ) -> LLMResponse:
@@ -109,7 +109,7 @@ class OpenAIProvider(BaseLLMProvider):
         self,
         messages: list[Message],
         model: str | None = None,
-        tools: list[dict] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
     ) -> AsyncIterator[str]:

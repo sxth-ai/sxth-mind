@@ -1,11 +1,19 @@
 ---
 title: "Storage"
-description: "Configure persistence for cognitive state"
+description: "Configure persistence for the belief state"
 ---
 
 # Storage
 
-sxth-mind supports pluggable storage backends for persisting cognitive state.
+sxth-mind supports pluggable storage backends for persisting the **belief state**
+— the cognitive model it owns (`UserMind`, `ProjectMind`, `Nudge`).
+
+<Note>
+Storage persists *beliefs*, not raw bytes. Raw conversation turns and events
+live behind a separate [`EvidenceSource`](/guides/evidence) that sxth-mind reads
+but does not own — "own the beliefs, rent the bytes." If you're looking for where
+message history is kept, that's the evidence source, not storage.
+</Note>
 
 ## Available Backends
 
@@ -15,7 +23,7 @@ In-memory storage. Data is lost when the process exits. Good for development and
 
 ```python
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 # Memory storage is the default
 mind = Mind(adapter=SalesAdapter())
@@ -32,7 +40,7 @@ pip install sxth-mind[sqlite]
 ```python
 from sxth_mind import Mind
 from sxth_mind.storage import SQLiteStorage
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 mind = Mind(
     adapter=SalesAdapter(),
@@ -41,9 +49,8 @@ mind = Mind(
 ```
 
 The SQLite storage automatically creates these tables:
-- `user_minds` — User-level state
-- `project_minds` — Project-specific state
-- `memories` — Conversation history
+- `user_minds` — User-level belief state
+- `project_minds` — Project-specific belief state
 - `nudges` — Proactive suggestions
 
 ## Custom Storage
@@ -52,7 +59,7 @@ Implement the `BaseStorage` interface for custom backends (Redis, PostgreSQL, Mo
 
 ```python
 from sxth_mind.storage.base import BaseStorage
-from sxth_mind.schemas import UserMind, ProjectMind, ConversationMemory, Nudge
+from sxth_mind.schemas import UserMind, ProjectMind, Nudge
 
 class MyStorage(BaseStorage):
     async def initialize(self) -> None:
@@ -86,20 +93,21 @@ class MyStorage(BaseStorage):
     async def delete_project_mind(self, user_id: str, project_id: str) -> None:
         ...
 
-    # Memory operations
-    async def get_memory(self, project_mind_id: str) -> ConversationMemory | None:
-        ...
-
-    async def save_memory(self, memory: ConversationMemory) -> None:
-        ...
-
     # Nudge operations
     async def get_pending_nudges(self, user_id: str) -> list[Nudge]:
         ...
 
     async def save_nudge(self, nudge: Nudge) -> None:
         ...
+
+    async def update_nudge_status(self, nudge_id: str, status: str) -> bool:
+        ...
 ```
+
+<Note>
+There are no memory/message methods on `BaseStorage` — raw history is the
+[`EvidenceSource`](/guides/evidence)'s job, not storage's.
+</Note>
 
 Then use it:
 
@@ -139,9 +147,11 @@ All storage backends persist these entities:
 
 | Entity | Description | Key |
 |--------|-------------|-----|
-| UserMind | User-level state | `user_id` |
-| ProjectMind | Project-specific state | `(user_id, project_id)` |
-| ConversationMemory | Message history | `project_mind_id` |
+| UserMind | User-level belief state | `user_id` |
+| ProjectMind | Project-specific belief state | `(user_id, project_id)` |
 | Nudge | Proactive suggestions | `id` |
+
+Raw message/event history is **not** a storage entity — it lives behind the
+[`EvidenceSource`](/guides/evidence).
 
 Data is serialized as JSON using Pydantic's `model_dump_json()` and deserialized with `model_validate_json()`.

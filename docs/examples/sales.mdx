@@ -11,7 +11,7 @@ The Sales adapter models a sales rep working deals through a pipeline.
 
 ```python
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 mind = Mind(adapter=SalesAdapter())
 ```
@@ -64,7 +64,7 @@ The Sales adapter detects:
 ```python
 import asyncio
 from sxth_mind import Mind
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 
 async def main():
     mind = Mind(adapter=SalesAdapter())

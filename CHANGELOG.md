@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Separated owned belief state from rented raw substrate** ("own the beliefs,
+  rent the bytes"). Raw conversation turns now live behind a new
+  `EvidenceSource` port (`recent` / `search` / optional `append`), with a
+  bundled `LocalEvidenceSource` default. Point `Mind(evidence=...)` at your own
+  store or a memory vendor (Mem0/Zep) in production — sxth-mind reads it but is
+  no longer the system of record for raw bytes.
+  - `ConversationMemory` and the storage `get_memory`/`save_memory` methods (and
+    the SQLite `memories` table) are removed. `BaseStorage` now persists only
+    the belief state (`UserMind`/`ProjectMind`/`Nudge`).
+  - The derived views that used to live on `ConversationMemory`
+    (`summary`, `topics`) move onto `ProjectMind` as
+    `conversation_summary`/`topics` — they are owned, cognition-produced belief
+    state, not raw bytes.
+  - New public exports: `Event`, `EvidenceSource`, `LocalEvidenceSource`.
+
+### Fixed
+
+- **Reference adapters are now packaged** and importable as
+  `from sxth_mind.adapters import SalesAdapter, HabitCoachAdapter, LearningAdapter`.
+  Previously they lived only under `examples/`, which is not shipped in the
+  wheel, so the documented quickstart and the `sxth-mind demo`/`serve` CLI
+  failed with `ModuleNotFoundError` after `pip install`. Importing from
+  `examples.*` still works in a source checkout via a compatibility shim.
+- **Time-based nudges now fire.** `days_since_activity` is derived from
+  `last_interaction` (via `ProjectMind.refresh_inactivity()`) instead of only
+  ever being reset to 0, so inactivity/comeback/streak nudges actually trigger.
+- **Momentum now decays with inactivity** (`apply_momentum_decay()`) rather than
+  only ever increasing.
+- **`trust_score` now evolves** with each interaction (diminishing growth toward
+  1.0) on both `UserMind` and `ProjectMind`.
+- **Nudge dismiss/act endpoints are real.** `POST /nudges/{id}/dismiss` and
+  `/act` update stored status (404 when the nudge doesn't exist) instead of
+  returning a no-op success. Added `BaseStorage.update_nudge_status()` and
+  `Mind.check_nudges()/dismiss_nudge()/act_on_nudge()`.
+- **HTTP API no longer uses a module-level singleton.** The `Mind` is bound to
+  `app.state` and injected via a FastAPI dependency, so multiple apps can run in
+  one process and tests stay isolated.
+- **`MemoryStorage` stores isolated snapshots** (deep copies) so mutating an
+  object after saving no longer changes persisted state, matching
+  `SQLiteStorage` semantics.
+- Timestamps are timezone-aware UTC (no more deprecated `datetime.utcnow()`).
+- `mypy --strict` now passes (the project configured it but had 70+ errors).
+- Python 3.10 is now a real, declared-and-tested floor (classifier added,
+  tooling targets `py310`).
+
 ## [0.1.0] - 2026-01-18
 
 ### Added

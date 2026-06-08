@@ -10,6 +10,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from sxth_mind._time import utcnow
+
+# Fraction of the remaining gap to full trust closed per interaction.
+TRUST_GROWTH_RATE = 0.02
+
 
 class UserMind(BaseModel):
     """
@@ -89,8 +94,8 @@ class UserMind(BaseModel):
     )
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
     model_config = {"extra": "allow"}
 
@@ -112,7 +117,11 @@ class UserMind(BaseModel):
         self.patterns[pattern_key] = value
 
     def increment_interactions(self) -> None:
-        """Increment interaction count and update timestamp."""
+        """Increment interaction count, grow trust, and update timestamps."""
         self.total_interactions += 1
-        self.last_interaction = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.last_interaction = utcnow()
+        # Trust grows toward 1.0, with diminishing returns as it approaches.
+        self.trust_score = min(
+            1.0, self.trust_score + (1.0 - self.trust_score) * TRUST_GROWTH_RATE
+        )
+        self.updated_at = utcnow()

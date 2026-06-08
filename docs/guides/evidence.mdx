@@ -1,0 +1,124 @@
+---
+title: "Evidence"
+description: "Point sxth-mind at the raw substrate it reads but does not own"
+---
+
+# Evidence
+
+sxth-mind separates the **belief state it owns** (`UserMind`, `ProjectMind`,
+`Nudge`, persisted via [Storage](/guides/storage)) from the **raw evidence it
+rents** — the messages, actions, and signals it reads to build context and derive
+beliefs.
+
+> **Own the beliefs, rent the bytes.** sxth-mind is the system of record for what
+> it *concludes* about a user, not for the raw transcript. The transcript can live
+> in your own database, a memory vendor (Mem0, Zep), or the bundled local store.
+
+This keeps sxth-mind from competing with — or duplicating — wherever your data
+already lives.
+
+## The interface
+
+An `EvidenceSource` is a read-mostly port. The only required methods are reads:
+
+```python
+from sxth_mind import EvidenceSource
+from sxth_mind.schemas import Event
+
+class MyEvidenceSource(EvidenceSource):
+    async def recent(
+        self, user_id: str, project_id: str | None = None, limit: int = 10
+    ) -> list[Event]:
+        """Most recent events, oldest-first — used to build conversation context."""
+        ...
+
+    async def search(
+        self, user_id: str, query: str, project_id: str | None = None, limit: int = 10
+    ) -> list[Event]:
+        """Events relevant to a query, most relevant first."""
+        ...
+```
+
+An `Event` is one piece of raw evidence:
+
+```python
+class Event:
+    id: str
+    user_id: str
+    project_id: str | None
+    kind: str          # "message" | "action" | "signal" | ...
+    role: str | None   # for messages: user | assistant | system | tool
+    content: str
+    timestamp: datetime
+    metadata: dict
+```
+
+## Writes are optional
+
+Many apps already log their own conversations. In that case sxth-mind only needs
+to *read* — `append()` defaults to a no-op:
+
+```python
+class ReadOnlySource(EvidenceSource):
+    async def recent(self, user_id, project_id=None, limit=10):
+        return await my_db.fetch_recent(user_id, project_id, limit)
+
+    async def search(self, user_id, query, project_id=None, limit=10):
+        return await my_db.semantic_search(user_id, query, limit)
+
+    # No append() — the app owns writes.
+```
+
+Override `append()` when you want sxth-mind to capture raw turns for you:
+
+```python
+class ReadWriteSource(EvidenceSource):
+    async def recent(self, user_id, project_id=None, limit=10): ...
+    async def search(self, user_id, query, project_id=None, limit=10): ...
+
+    async def append(self, event: Event) -> None:
+        await my_db.insert(event)
+```
+
+## Using it
+
+Pass your source to the `Mind` (it defaults to a process-local store):
+
+```python
+from sxth_mind import Mind, LocalEvidenceSource
+from sxth_mind.adapters import SalesAdapter
+
+# Default: in-memory dev store
+mind = Mind(adapter=SalesAdapter())
+
+# Production: your own substrate
+mind = Mind(adapter=SalesAdapter(), evidence=MyEvidenceSource())
+```
+
+On each `chat()`, the Mind:
+
+1. Reads recent evidence via `recent()` to assemble the prompt.
+2. Calls the LLM.
+3. Appends the user and assistant turns via `append()` (a no-op if your app owns
+   writes).
+4. Updates the owned belief state and persists it via [Storage](/guides/storage).
+
+## LocalEvidenceSource
+
+The bundled default. In-memory, dependency-free, with naive substring search.
+Good for development and demos; data is lost when the process exits. Swap in a
+real source backed by your database or a memory vendor for production.
+
+```python
+from sxth_mind import LocalEvidenceSource
+
+evidence = LocalEvidenceSource()
+```
+
+## Where derived views live
+
+The *summary* and *topics* that sxth-mind derives from a conversation are **not**
+evidence — they're owned belief state, stored on
+[`ProjectMind`](/concepts/state) as `conversation_summary` and `topics`. Raw
+messages stay in the evidence source; conclusions about them are owned by
+sxth-mind.

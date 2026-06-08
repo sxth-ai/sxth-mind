@@ -13,7 +13,7 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 from sxth_mind.api import create_app
 from sxth_mind.providers.base import BaseLLMProvider, LLMResponse
 from sxth_mind.storage import MemoryStorage
@@ -220,23 +220,58 @@ class TestAPINudges:
         data = response.json()
         assert data == []
 
+    def _seed_nudge(self, client, nudge_id="nudge_123"):
+        """Seed a pending nudge for user_1 directly into the app's storage."""
+        import asyncio
+
+        from sxth_mind.schemas import Nudge, ProjectMind, UserMind
+
+        mind = client.app.state.mind
+
+        async def seed():
+            await mind.storage.save_user_mind(UserMind(id="um_1", user_id="user_1"))
+            await mind.storage.save_project_mind(
+                ProjectMind(id="pm_1", user_mind_id="um_1", project_id="default")
+            )
+            await mind.storage.save_nudge(
+                Nudge(
+                    id=nudge_id,
+                    project_mind_id="pm_1",
+                    nudge_type="stalled_deal",
+                    title="Deal stalling",
+                    message="Time to follow up?",
+                )
+            )
+
+        asyncio.run(seed())
+
     def test_dismiss_nudge(self, client):
-        """POST /nudges/{nudge_id}/dismiss should work."""
+        """POST /nudges/{nudge_id}/dismiss marks a real nudge dismissed."""
+        self._seed_nudge(client)
+
         response = client.post("/nudges/nudge_123/dismiss")
         assert response.status_code == 200
+        assert response.json()["status"] == "dismissed"
 
-        data = response.json()
-        assert data["status"] == "dismissed"
-        assert data["nudge_id"] == "nudge_123"
+        # It should no longer show up as pending.
+        pending = client.get("/nudges/user_1").json()
+        assert all(n["id"] != "nudge_123" for n in pending)
 
     def test_act_on_nudge(self, client):
-        """POST /nudges/{nudge_id}/act should work."""
+        """POST /nudges/{nudge_id}/act marks a real nudge acted upon."""
+        self._seed_nudge(client)
+
         response = client.post("/nudges/nudge_123/act")
         assert response.status_code == 200
+        assert response.json()["status"] == "acted"
 
-        data = response.json()
-        assert data["status"] == "acted"
-        assert data["nudge_id"] == "nudge_123"
+        pending = client.get("/nudges/user_1").json()
+        assert all(n["id"] != "nudge_123" for n in pending)
+
+    def test_dismiss_unknown_nudge_returns_404(self, client):
+        """Dismissing a nudge that doesn't exist is a 404, not a silent OK."""
+        response = client.post("/nudges/does_not_exist/dismiss")
+        assert response.status_code == 404
 
 
 class TestAPICreateApp:

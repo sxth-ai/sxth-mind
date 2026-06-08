@@ -98,12 +98,12 @@ class BaseAdapter(ABC):
     def get_stage_guidance(self, stage: str) -> str:
         """Get AI guidance instructions for a stage."""
         stages = {s["key"]: s for s in self.get_journey_stages()}
-        return stages.get(stage, {}).get("guidance", "")
+        return str(stages.get(stage, {}).get("guidance", ""))
 
     def get_stage_tone(self, stage: str) -> str:
         """Get recommended AI tone for a stage."""
         stages = {s["key"]: s for s in self.get_journey_stages()}
-        return stages.get(stage, {}).get("tone", "balanced")
+        return str(stages.get(stage, {}).get("tone", "balanced"))
 
     # ═══════════════════════════════════════════════════════════════
     # REQUIRED: Proactive Intelligence

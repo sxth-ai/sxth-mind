@@ -1,27 +1,34 @@
 ---
 title: "State"
-description: "Understanding UserMind, ProjectMind, and ConversationMemory"
+description: "Understanding the owned belief state (UserMind, ProjectMind) and the rented evidence substrate"
 ---
 
 # Cognitive State
 
-sxth-mind maintains three levels of state:
+sxth-mind separates the **belief state it owns** from the **raw evidence it
+rents** — "own the beliefs, rent the bytes."
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        UserMind                              │
+│                        UserMind            ▲ OWNED            │
 │  User-level understanding (persists across all projects)    │
 │  - Identity type, patterns, preferences, trust score        │
 ├─────────────────────────────────────────────────────────────┤
-│                       ProjectMind                            │
-│  Project-specific context (one per project/deal/habit)      │
-│  - Journey stage, momentum, context data, progress          │
-├─────────────────────────────────────────────────────────────┤
-│                   ConversationMemory                         │
-│  Recent message history (sliding window)                     │
-│  - Last N messages, key topics                              │
+│                       ProjectMind          ▲ OWNED           │
+│  Project-specific belief state (one per project/deal/habit) │
+│  - Journey stage, momentum, derived summary & topics        │
+└─────────────────────────────────────────────────────────────┘
+                            ▲ reads / derives beliefs from
+┌─────────────────────────────────────────────────────────────┐
+│                   EvidenceSource           ▼ RENTED          │
+│  Raw messages, actions, signals (your DB, Mem0, Zep, …)     │
+│  - sxth-mind reads it; it is NOT the system of record       │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+The belief state (`UserMind`, `ProjectMind`) is persisted via
+[Storage](/guides/storage). The raw turns are read from an
+[`EvidenceSource`](/guides/evidence) you control.
 
 ## UserMind
 
@@ -86,6 +93,10 @@ class ProjectMind:
     # Custom data (adapter-defined)
     context_data: dict              # Flexible context storage
     progress_data: dict             # Progress metrics
+
+    # Derived conversation views (OWNED belief state, not raw bytes)
+    conversation_summary: str | None
+    topics: list[str]
 ```
 
 ### Multi-Project Support
@@ -104,22 +115,28 @@ await mind.chat("user_1", "Read for 30 mins", project_id="habit_reading")
 
 Each project maintains its own state (journey stage, momentum, context).
 
-## ConversationMemory
+## Evidence (the rented substrate)
 
-Sliding window of recent messages for context.
+Raw conversation turns and events are **not** part of the belief state. They live
+behind an [`EvidenceSource`](/guides/evidence) — backed by your own database, a
+memory vendor (Mem0, Zep), or the bundled `LocalEvidenceSource` for dev.
 
 ```python
-class ConversationMemory:
-    project_mind_id: str
-    messages: list[Message]         # Recent messages
-    summary: str | None             # Summary of older messages
-    key_topics: list[str]           # Extracted topics
+class Event:
+    user_id: str
+    project_id: str | None
+    kind: str                       # "message" | "action" | "signal" | ...
+    role: str | None                # for messages: user | assistant | ...
+    content: str
+    timestamp: datetime
 ```
 
-The Mind automatically:
-- Keeps the last N messages in full
-- Summarizes older messages
-- Extracts key topics for quick context
+On each `chat()`, the Mind:
+- Reads recent evidence to assemble context
+- Appends the new turns back to the source (a no-op if your app owns writes)
+- Derives belief state from it — the **summary** and **topics** that result are
+  stored on `ProjectMind` (owned), while the raw messages stay in the evidence
+  source (rented).
 
 ## State Evolution
 

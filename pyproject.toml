@@ -25,6 +25,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -62,7 +63,7 @@ Issues = "https://github.com/sxth-ai/sxth-mind/issues"
 packages = ["sxth_mind"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
@@ -73,7 +74,7 @@ ignore = ["E501"]
 "tests/*" = ["E402"]  # Allow late imports after pytest.importorskip()
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = true
 
 [tool.pytest.ini_options]

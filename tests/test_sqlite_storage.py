@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Check if aiosqlite is available
 pytest.importorskip("aiosqlite")
 
-from sxth_mind.schemas import ConversationMemory, Nudge, ProjectMind, UserMind
+from sxth_mind.schemas import Nudge, ProjectMind, UserMind
 from sxth_mind.storage.sqlite import SQLiteStorage
 
 
@@ -124,24 +124,6 @@ class TestSQLiteStorage:
         project_ids = {p.project_id for p in projects}
         assert "deal_1" in project_ids
         assert "deal_2" in project_ids
-
-    @pytest.mark.asyncio
-    async def test_save_and_get_memory(self, storage):
-        """Should save and retrieve ConversationMemory."""
-        memory = ConversationMemory(
-            id="mem_1",
-            project_mind_id="pm_1",
-        )
-        memory.add_message("user", "Hello!")
-        memory.add_message("assistant", "Hi there!")
-
-        await storage.save_memory(memory)
-        retrieved = await storage.get_memory("pm_1")
-
-        assert retrieved is not None
-        assert retrieved.id == "mem_1"
-        messages = retrieved.get_recent_messages()
-        assert len(messages) == 2
 
     @pytest.mark.asyncio
     async def test_save_and_get_nudge(self, storage):

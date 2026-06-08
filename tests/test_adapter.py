@@ -8,7 +8,7 @@ import pytest
 # Add examples to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.sales import SalesAdapter
+from sxth_mind.adapters import SalesAdapter
 from sxth_mind.schemas import ProjectMind, UserMind
 
 

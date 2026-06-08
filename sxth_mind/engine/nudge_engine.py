@@ -5,6 +5,7 @@ Rule-based nudge generation. Checks conditions and generates nudges
 based on adapter templates.
 """
 
+from typing import Any
 from uuid import uuid4
 
 from sxth_mind.adapters.base import BaseAdapter
@@ -69,6 +70,11 @@ class BaselineNudgeEngine:
         templates = self.adapter.get_nudge_templates()
 
         for project_mind in project_minds:
+            # Derive inactivity/momentum from the wall clock before evaluating
+            # rules, so time-based nudges actually fire as time passes.
+            project_mind.refresh_inactivity()
+            project_mind.apply_momentum_decay()
+
             # Check each rule
             nudges = self._check_rules(user_mind, project_mind, templates)
             generated.extend(nudges)
@@ -83,7 +89,7 @@ class BaselineNudgeEngine:
         self,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        templates: dict,
+        templates: dict[str, Any],
     ) -> list[Nudge]:
         """Check all rules and generate matching nudges."""
         nudges = []
@@ -118,7 +124,7 @@ class BaselineNudgeEngine:
         self,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        templates: dict,
+        templates: dict[str, Any],
     ) -> Nudge | None:
         """Check for inactivity and generate nudge if needed."""
         days = project_mind.days_since_activity
@@ -164,7 +170,7 @@ class BaselineNudgeEngine:
         self,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        templates: dict,
+        templates: dict[str, Any],
     ) -> Nudge | None:
         """Check for momentum drop."""
         if project_mind.momentum_score >= 0.3:
@@ -195,7 +201,7 @@ class BaselineNudgeEngine:
         self,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        templates: dict,
+        templates: dict[str, Any],
     ) -> Nudge | None:
         """Check if streak is at risk (for habits)."""
         streak = project_mind.get_progress_field("current_streak", 0)
@@ -230,7 +236,7 @@ class BaselineNudgeEngine:
         self,
         user_mind: UserMind,
         project_mind: ProjectMind,
-        templates: dict,
+        templates: dict[str, Any],
     ) -> Nudge | None:
         """Check for milestone achievements."""
         streak = project_mind.get_progress_field("current_streak", 0)

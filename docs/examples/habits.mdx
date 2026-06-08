@@ -11,7 +11,7 @@ The Habits adapter helps users build and maintain habits with streak tracking an
 
 ```python
 from sxth_mind import Mind
-from examples.habits import HabitCoachAdapter
+from sxth_mind.adapters import HabitCoachAdapter
 
 mind = Mind(adapter=HabitCoachAdapter())
 ```
@@ -65,7 +65,7 @@ The Habits adapter tracks:
 ```python
 import asyncio
 from sxth_mind import Mind
-from examples.habits import HabitCoachAdapter
+from sxth_mind.adapters import HabitCoachAdapter
 
 async def main():
     mind = Mind(adapter=HabitCoachAdapter())

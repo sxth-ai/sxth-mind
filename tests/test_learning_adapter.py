@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.learning import LearningAdapter
+from sxth_mind.adapters import LearningAdapter
 from sxth_mind.schemas import ProjectMind, UserMind
 
 

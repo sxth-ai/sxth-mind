@@ -10,6 +10,15 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from sxth_mind._time import utcnow
+
+# Momentum lost per day of inactivity.
+MOMENTUM_DECAY_PER_DAY = 0.1
+# Momentum gained when the user interacts.
+MOMENTUM_BOOST = 0.1
+# Fraction of the remaining gap to full trust closed per interaction.
+TRUST_GROWTH_RATE = 0.02
+
 
 class ProjectMind(BaseModel):
     """
@@ -95,9 +104,21 @@ class ProjectMind(BaseModel):
         description="Domain-specific progress data",
     )
 
+    # Derived conversation understanding (OWNED belief state, not raw bytes).
+    # The raw messages live in an EvidenceSource; these are the consolidated,
+    # cognition-produced views of them. Populated by summarization/consolidation.
+    conversation_summary: str | None = Field(
+        default=None,
+        description="Running summary of conversation history beyond the recent window",
+    )
+    topics: list[str] = Field(
+        default_factory=list,
+        description="Key topics/themes derived from conversation",
+    )
+
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
     model_config = {"extra": "allow"}
 
@@ -119,14 +140,47 @@ class ProjectMind(BaseModel):
         self.progress_data[field] = value
 
     def increment_interactions(self) -> None:
-        """Increment interaction count and update timestamp."""
+        """Increment interaction count, refresh trust, and update timestamps."""
         self.interaction_count += 1
-        self.last_interaction = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.last_interaction = utcnow()
+        self.days_since_activity = 0
+        # Trust grows toward 1.0, with diminishing returns as it approaches.
+        self.trust_score = min(
+            1.0, self.trust_score + (1.0 - self.trust_score) * TRUST_GROWTH_RATE
+        )
+        self.updated_at = utcnow()
 
     def update_momentum(self) -> None:
-        """Update momentum based on activity."""
+        """Boost momentum after an interaction."""
         self.days_since_activity = 0
-        # Simple momentum boost on activity
-        self.momentum_score = min(1.0, self.momentum_score + 0.1)
-        self.updated_at = datetime.utcnow()
+        self.momentum_score = min(1.0, self.momentum_score + MOMENTUM_BOOST)
+        self.updated_at = utcnow()
+
+    def refresh_inactivity(self) -> int:
+        """
+        Recompute ``days_since_activity`` from ``last_interaction``.
+
+        This is what makes time-based nudges fire: the field is derived from
+        the wall clock rather than only being reset to 0 on each interaction.
+        If ``last_interaction`` was never set, the existing value is preserved
+        (callers may set it explicitly, e.g. in tests or migrations).
+        """
+        if self.last_interaction is not None:
+            delta = utcnow() - self.last_interaction
+            self.days_since_activity = max(0, delta.days)
+        return self.days_since_activity
+
+    def apply_momentum_decay(self) -> None:
+        """
+        Decay momentum based on how long the project has been inactive.
+
+        Call ``refresh_inactivity()`` first so ``days_since_activity`` reflects
+        the wall clock. Without this, momentum would only ever increase.
+        """
+        if self.days_since_activity > 0:
+            self.momentum_score = max(
+                0.0,
+                self.momentum_score
+                - MOMENTUM_DECAY_PER_DAY * self.days_since_activity,
+            )
+            self.updated_at = utcnow()

@@ -5,8 +5,11 @@ The Mind accumulates state, detects patterns, and adapts over time.
 """
 
 from sxth_mind.adapters.base import BaseAdapter
+from sxth_mind.evidence.base import EvidenceSource
+from sxth_mind.evidence.local import LocalEvidenceSource
 from sxth_mind.mind import Mind
 from sxth_mind.providers.base import BaseLLMProvider
+from sxth_mind.schemas.evidence import Event
 from sxth_mind.schemas.project_mind import ProjectMind
 from sxth_mind.schemas.user_mind import UserMind
 from sxth_mind.storage.base import BaseStorage
@@ -18,6 +21,9 @@ __all__ = [
     "BaseAdapter",
     "BaseLLMProvider",
     "BaseStorage",
+    "EvidenceSource",
+    "LocalEvidenceSource",
     "UserMind",
     "ProjectMind",
+    "Event",
 ]

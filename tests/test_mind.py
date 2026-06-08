@@ -7,8 +7,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.sales import SalesAdapter
 from sxth_mind import Mind
+from sxth_mind.adapters import SalesAdapter
 from sxth_mind.providers.base import BaseLLMProvider, LLMResponse
 from sxth_mind.storage import MemoryStorage
 
@@ -146,19 +146,16 @@ class TestMindChat:
         assert "Acme" in user_messages[0].content
 
     @pytest.mark.asyncio
-    async def test_chat_saves_to_memory(self, mind):
-        """chat() should save messages to conversation memory."""
+    async def test_chat_appends_turns_to_evidence(self, mind):
+        """chat() should append the raw turns to the evidence substrate."""
         await mind.chat("user_1", "Hello!")
 
-        project_mind = await mind.storage.get_project_mind("user_1", "default")
-        memory = await mind.storage.get_memory(project_mind.id)
-
-        assert memory is not None
-        messages = memory.get_recent_messages()
-        assert len(messages) == 2  # user + assistant
-        assert messages[0].role == "user"
-        assert messages[0].content == "Hello!"
-        assert messages[1].role == "assistant"
+        events = await mind.evidence.recent("user_1", "default")
+        assert len(events) == 2  # user + assistant
+        assert events[0].role == "user"
+        assert events[0].content == "Hello!"
+        assert events[0].kind == "message"
+        assert events[1].role == "assistant"
 
     @pytest.mark.asyncio
     async def test_chat_includes_conversation_history(self, mind):

@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from sxth_mind._time import utcnow
+
 
 class Insight(BaseModel):
     """
@@ -53,13 +55,13 @@ class Insight(BaseModel):
     acknowledged_at: datetime | None = Field(default=None)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
     model_config = {"extra": "allow"}
 
     def acknowledge(self) -> None:
         """Mark insight as acknowledged."""
         self.acknowledged = True
-        self.acknowledged_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.acknowledged_at = utcnow()
+        self.updated_at = utcnow()
